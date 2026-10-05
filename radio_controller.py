@@ -125,7 +125,7 @@ class RadioController:
         # 1. Station ident (if available)
         if self.station_ident_path and os.path.exists(self.station_ident_path):
             print("[Radio] Playing station ident...")
-            ident = self.mixer.load_audio(self.station_ident_path, "Station Ident")
+            ident = self.mixer.load_audio(self.station_ident_path, "Station Ident", kind="voice")
             self.mixer.add_track(ident, slot="ident")
             
             # Wait for ident to finish
@@ -134,7 +134,7 @@ class RadioController:
             time.sleep(0.5)
         
         # 2. DJ opening (already generated)
-        opening_audio = self.mixer.load_audio(opening_audio_path, "DJ Opening")
+        opening_audio = self.mixer.load_audio(opening_audio_path, "DJ Opening", kind="voice")
         
         self.mixer.add_track(opening_audio, slot="dj")
         
@@ -231,7 +231,7 @@ class RadioController:
         #     self.current_song, 
         #     self.next_song
         # )
-        dj_audio = self.mixer.load_audio(dj_audio_path, "DJ Transition")
+        dj_audio = self.mixer.load_audio(dj_audio_path, "DJ Transition", kind="voice")
         
         # 4. Pre-load next song
         next_song_audio = self.mixer.load_audio(self.next_song.filepath, self.next_song.title)

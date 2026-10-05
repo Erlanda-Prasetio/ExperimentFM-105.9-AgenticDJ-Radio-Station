@@ -3,6 +3,7 @@ Agentic Radio Controller - Full LLM Autonomy
 DJ decides song selection + script generation in single call
 """
 import os
+import re
 import time
 import json
 import requests
@@ -13,10 +14,11 @@ from dataclasses import dataclass, asdict
 
 from playlist_manager import PlaylistManager, Track
 from tts_engine import TTSEngine
-from audio_engine import RealtimeRadioMixer, AudioTrack
-from phonetic_respell import respell
+from audio_engine import RealtimeRadioMixer, trim_trailing_silence
+from phonetic_respell import respell, normalize_numbers
 from listener_llm import (ListenerLLM, load_seeds, pick_seed,
                           time_profile, generate_session)
+from song_intro import detect_intro
 
 
 @dataclass
@@ -33,7 +35,8 @@ class AgenticDecision:
     is_handoff: Optional[bool] = False   # True if this is a goodbye/hello handoff break
     is_for_you_zone: Optional[bool] = False   # True if this break reads listener messages
     listener: Optional[list] = None      # listener messages read this break (list of dicts)
-    messages_read: Optional[int] = None  # how many listener messages the DJ chose to read this break
+    messages_read: Optional[int] = None  # how many listener messages the DJ actually read this break (resolved from the DJ's reported numbers)
+    talk_over_intro: Optional[bool] = False  # Bruce feature: ride the song intro, land the post on the DJ's last word
 
 
 class AgenticRadioController:
@@ -78,6 +81,7 @@ class AgenticRadioController:
         self.handoff_armed: bool = False           # True => next decision is the new DJ's hello
         self.resumed_gap_hours: float = 0.0        # downtime detected on resume (0 = none)
         self.dj_just_started: bool = False         # True => current DJ hasn't spoken yet this shift
+        self.last_station_id_hour: Optional[str] = None  # clock-hour key of the last station ID ("2026-10-05 16")
         
         # For You Zone (listener sessions via a SEPARATE listener LLM)
         self.listener_llm = ListenerLLM()
@@ -177,6 +181,7 @@ class AgenticRadioController:
                 except Exception:
                     self.shift_started_at = datetime.now()
             self.handoff_armed = state.get('handoff_armed', False)
+            self.last_station_id_hour = state.get('last_station_id_hour')
 
             # How long was the station quiet? (now - last save)
             last_end = state.get('last_session_end')
@@ -245,6 +250,7 @@ class AgenticRadioController:
                 'current_dj_idx': self.current_dj_idx,
                 'shift_started_at': self.shift_started_at.isoformat(),
                 'handoff_armed': self.handoff_armed,
+                'last_station_id_hour': self.last_station_id_hour,
             }
             with open(self.state_file, 'w', encoding='utf-8') as f:
                 json.dump(state, f, indent=2, ensure_ascii=False)
@@ -282,6 +288,15 @@ class AgenticRadioController:
         self.handoff_armed = False
         print(f"[DJ] Handoff complete: {old} -> {new} (new {self.shift_hours}h shift)")
     
+    def _prep_tts_text(self, script: str) -> str:
+        """Prepare a DJ script for TTS: phonetic respell (Hindi names) + number
+        normalization (105.9 -> 'one oh five point nine') + light punctuation cleanup.
+        Code owns this so the LLM can keep writing natural text."""
+        text = respell(script)
+        text = normalize_numbers(text)
+        text = text.replace('!', '.').replace('...', ',')
+        return text
+
     def _voice_to_gender(self, voice: str) -> str:
         """Map voice name to gender"""
         voice_gender_map = {
@@ -325,6 +340,7 @@ class AgenticRadioController:
                 _pre_handoff = getattr(decision, 'is_handoff', False)
                 _pre_fyz = getattr(decision, 'is_for_you_zone', False)
                 _pre_read = getattr(decision, 'messages_read', 0) or 0
+                _pre_bruce = bool(getattr(decision, 'talk_over_intro', False))
                 print(f"\n{'='*60}")
                 print(f"🤖 AI DJ DECISION #{len(self.decisions_log) + 1} (pre-generated)")
                 print(f"{'='*60}")
@@ -332,6 +348,8 @@ class AgenticRadioController:
                 print(f"Intent:     {decision.intent}")
                 print(f"Reasoning:  {decision.reasoning}")
                 print(f"Next Song:  {_pre_name}")
+                if _pre_bruce:
+                    print(f"BRUCE:      🎙️ talk over intro (post on last word)")
                 if _pre_repeat:
                     print(f"REPEAT:     ♻️ {_pre_repeat}")
                 print(f"Script:     {decision.script[:100]}...")
@@ -348,6 +366,7 @@ class AgenticRadioController:
                     'next_song': _pre_name,
                     'script': decision.script,
                     'repeat_reason': _pre_repeat,
+                    'talk_over_intro': _pre_bruce,
                     'note': 'pre_generated'
                 })
             else:
@@ -359,6 +378,7 @@ class AgenticRadioController:
                 _cur_handoff = getattr(decision, 'is_handoff', False)
                 _cur_fyz = getattr(decision, 'is_for_you_zone', False)
                 _cur_read = getattr(decision, 'messages_read', 0) or 0
+                _cur_bruce = bool(getattr(decision, 'talk_over_intro', False))
                 _cur_track = self._song_id_map.get(str(decision.next_song_id))
                 _cur_name = f"{_cur_track.title} - {_cur_track.artist}" if _cur_track else decision.next_song_id
                 print(f"\n{'='*60}")
@@ -368,6 +388,8 @@ class AgenticRadioController:
                 print(f"Intent:     {decision.intent}")
                 print(f"Reasoning:  {decision.reasoning}")
                 print(f"Next Song:  {_cur_name}")
+                if _cur_bruce:
+                    print(f"BRUCE:      🎙️ talk over intro (post on last word)")
                 if _cur_repeat:
                     print(f"REPEAT:     ♻️ {_cur_repeat}")
                 print(f"Script:     {decision.script[:100]}...")
@@ -384,13 +406,13 @@ class AgenticRadioController:
                     'reasoning': decision.reasoning,
                     'next_song': _cur_name,
                     'script': decision.script,
-                    'repeat_reason': _cur_repeat
+                    'repeat_reason': _cur_repeat,
+                    'talk_over_intro': _cur_bruce
                 })
                 
                 # Generate TTS (use the on-air DJ's voice if rotating)
                 print(f"[TTS] Generating: '{decision.script[:60]}...'")
-                phonetic_script = respell(decision.script)
-                clean_script = phonetic_script.replace('!', '.').replace('...', ',')
+                clean_script = self._prep_tts_text(decision.script)
                 dj_audio_path = self.tts.generate(clean_script, language='english', voice_name=decision.dj_voice)
             
             # Step 2: Get selected track (resolve numeric ID via map)
@@ -428,38 +450,69 @@ class AgenticRadioController:
                 })
                 
                 # Generate TTS with corrected script (keep the DJ voice)
-                phonetic_script = respell(decision.script)
-                clean_script = phonetic_script.replace('!', '.').replace('...', ',')
+                clean_script = self._prep_tts_text(decision.script)
                 dj_audio_path = self.tts.generate(clean_script, language='english', voice_name=decision.dj_voice)
             
-            # Step 3: Play DJ intro with music ducking
-            print(f"[Playing] DJ Transition")
-            
-            # If music is already playing, duck it
-            if self.mixer.get_track_info("music"):
-                print("[Ducking] Lowering music volume to 30%")
-                self.mixer.set_volume("music", 0.3)
-            
-            dj_track = self.mixer.load_audio(dj_audio_path, name="dj_intro")
-            self.mixer.add_track(dj_track, slot="voice")
-            
-            # Wait for DJ to finish
-            print("[Press 'S' to skip DJ intro]")
-            while not dj_track.is_finished():
-                time.sleep(0.1)
-            
-            # Restore music volume
-            if self.mixer.get_track_info("music"):
-                print("[Ducking] Restoring music volume to 100%")
+            # Step 3+4: DJ voice + song, with optional "Bruce feature" (talk over the intro)
+            bruce = bool(getattr(decision, 'talk_over_intro', False))
+            song_track = self.mixer.load_audio(str(next_song.filepath), name=next_song.title, kind="music")
+
+            if bruce:
+                # --- TALK OVER THE INTRO (hitting the post) ---
+                # The song starts from the TOP, quietly, under the DJ's voice - no dead air.
+                # The music lifts to full at the "post": the LATER of
+                #   (a) the moment the DJ's voice ends, or
+                #   (b) the moment the song's body kicks in (end of the intro).
+                # So the lift always lands either on the DJ's last word, or right on the
+                # song's drop - never in the middle of nowhere.
+                voice_track = self.mixer.load_audio(dj_audio_path, name="dj_intro", kind="voice")
+                voice_track.data = trim_trailing_silence(voice_track.data, voice_track.samplerate)
+                voice_len = voice_track.duration
+                intro = detect_intro(str(next_song.filepath))
+                duck = float(os.getenv("BRUCE_DUCK", "0.22"))  # music sits low under the voice
+                post = max(voice_len, intro)                   # when the music comes up to full
+
+                print(f"[Bruce] Talk over intro: voice {voice_len:.1f}s, song intro {intro:.1f}s "
+                      f"-> music lifts at {post:.1f}s (ducked to {int(duck*100)}%), "
+                      f"lands on {'your last word' if voice_len >= intro else 'the drop'}")
+
+                song_track.volume = duck
+                # Rebuild the timeline: song from the top (ducked) + voice, both from t=0.
+                self.mixer.remove_track("music")
+                self.mixer.add_track(song_track, slot="music")
+                self.mixer.add_track(voice_track, slot="voice")
+                # Ride the intro: keep the music ducked, then lift it at the post.
+                t0 = time.time()
+                while time.time() - t0 < post:
+                    time.sleep(0.05)
                 self.mixer.set_volume("music", 1.0)
-            
-            # Remove voice track
-            self.mixer.remove_track("voice")
-            
-            # Step 4: Play song
-            print(f"[Playing] 🎵 {next_song.title} - {next_song.artist}")
-            song_track = self.mixer.load_audio(str(next_song.filepath), name=next_song.title)
-            self.mixer.add_track(song_track, slot="music")
+                self.mixer.remove_track("voice")
+                print("[Bruce] Post hit - music back to full")
+            else:
+                # --- CLEAN BREAK (voice first, then song from the top) ---
+                if self.mixer.get_track_info("music"):
+                    print("[Ducking] Lowering music volume to 30%")
+                    self.mixer.set_volume("music", 0.3)
+
+                dj_track = self.mixer.load_audio(dj_audio_path, name="dj_intro", kind="voice")
+                self.mixer.add_track(dj_track, slot="voice")
+
+                # Wait for DJ to finish
+                print("[Press 'S' to skip DJ intro]")
+                while not dj_track.is_finished():
+                    time.sleep(0.1)
+
+                # Restore music volume
+                if self.mixer.get_track_info("music"):
+                    print("[Ducking] Restoring music volume to 100%")
+                    self.mixer.set_volume("music", 1.0)
+
+                # Remove voice track
+                self.mixer.remove_track("voice")
+
+                # Step 4: Play song from the top
+                print(f"[Playing] 🎵 {next_song.title} - {next_song.artist}")
+                self.mixer.add_track(song_track, slot="music")
             
             # Step 5: PRE-GENERATE next transition while song plays
             # Wait 15 seconds before starting (let song establish)
@@ -491,8 +544,7 @@ class AgenticRadioController:
                         print(f"[Background] Next intent: {next_decision.intent}")
                         
                         # Generate TTS
-                        phonetic_script = respell(next_decision.script)
-                        clean_script = phonetic_script.replace('!', '.').replace('...', ',')
+                        clean_script = self._prep_tts_text(next_decision.script)
                         next_dj_audio = self.tts.generate(clean_script, language='english', voice_name=next_decision.dj_voice)
                         
                         # Store for next cycle
@@ -624,6 +676,13 @@ class AgenticRadioController:
                 handoff_mode = 'goodbye'
                 dj_for_break = self._current_dj()
 
+        # === STATION ID (FCC-style) ===
+        # Real US radio identifies the station once per hour, on the break nearest the
+        # top of the hour - NOT on every break. We track the clock-hour of the last ID
+        # and only ask for one when the hour has turned. Everything else is plain DJ talk.
+        hour_key = now.strftime("%Y-%m-%d %H")
+        station_id_due = (self.last_station_id_hour != hour_key)
+
         # === FOR YOU ZONE (CODE schedules + owns facts; listener LLM writes; DJ reacts cold) ===
         # A "session" spans several breaks: CODE generates the whole batch of listener messages
         # up front, then the DJ decides per break how many to read (pattern is free), always
@@ -674,7 +733,8 @@ class AgenticRadioController:
             shift_remaining_h=_shift_remaining_h,
             resumed_gap_h=self.resumed_gap_hours,
             dj_just_started=self.dj_just_started,
-            for_you_zone=fyz_messages
+            for_you_zone=fyz_messages,
+            station_id_due=station_id_due
         )
         
         # Call LLM with retry logic
@@ -713,6 +773,9 @@ class AgenticRadioController:
         # Extract JSON from response
         decision_json = self._extract_json(content)
         
+        # Keep only known fields (LLMs occasionally invent extra keys -> would crash the dataclass)
+        _known = {f for f in AgenticDecision.__dataclass_fields__}
+        decision_json = {k: v for k, v in decision_json.items() if k in _known}
         decision = AgenticDecision(**decision_json)
         
         # Attach rotating-DJ metadata (computed, not from LLM)
@@ -721,19 +784,20 @@ class AgenticRadioController:
             decision.dj_voice = dj_for_break['voice']
         decision.is_handoff = bool(handoff_mode)
         decision.is_for_you_zone = bool(fyz_messages)
-        # The DJ reports how many of the handed messages it read this break (default: all).
-        _n_read = getattr(decision, 'messages_read', None)
-        if _n_read is None:
-            _n_read = len(fyz_messages) if fyz_messages else 0
-        _n_read = max(0, min(int(_n_read), len(fyz_messages) if fyz_messages else 0))
+        # The DJ reports WHICH messages it read this break as a list of 1-based numbers,
+        # e.g. [2, 1] = read #2 first then #1. It may read them in any order.
+        _read = getattr(decision, 'messages_read', None)
+        n_avail = len(fyz_messages) if fyz_messages else 0
+        read_idx = self._resolve_messages_read(_read, fyz_messages, decision.script)
         # Floor: if we're mid-session, read at least 1 so the session always advances.
-        if fyz_messages and _n_read == 0:
-            _n_read = 1
-        decision.messages_read = _n_read
-        decision.listener = fyz_messages[:_n_read] if fyz_messages else None
-        # Consume the read messages from the session queue
-        if fyz_messages and _n_read > 0:
-            self.fyz_queue = fyz_messages[_n_read:]
+        if fyz_messages and not read_idx:
+            read_idx = [1]
+        decision.messages_read = len(read_idx)
+        decision.listener = [fyz_messages[i - 1] for i in read_idx] if fyz_messages else None
+        # Consume exactly the messages the DJ read (by number), keep the rest in order
+        if fyz_messages and read_idx:
+            _read_set = set(read_idx)
+            self.fyz_queue = [m for i, m in enumerate(fyz_messages, 1) if i not in _read_set]
             if not self.fyz_queue:
                 # Session complete: start the min-gap clock from HERE (session end)
                 self.fyz_songs_since = 0
@@ -751,9 +815,57 @@ class AgenticRadioController:
         # Consume one-shot resume context (so "we're back" is said only once)
         self.resumed_gap_hours = 0.0
         self.dj_just_started = False
+        # Mark this clock-hour's station ID as done (FCC-style: one per hour).
+        # Handoff breaks skip the ID block, so they don't consume the hour.
+        if station_id_due and handoff_mode not in ('hello', 'goodbye'):
+            self.last_station_id_hour = hour_key
         
         return decision
     
+    def _resolve_messages_read(self, raw, fyz_messages, script=""):
+        """Resolve which For You Zone messages the DJ read this break.
+
+        The DJ reports a list of 1-based numbers, e.g. [2, 1]. Accepts several shapes
+        (list, int, "2,1", "2, 1") for robustness. Falls back to scanning the script for
+        listener NAMES if the reported numbers are missing or all out of range, so a
+        listener is never read twice just because the LLM reported the field oddly.
+        Returns a de-duplicated, in-range list of ints (may be empty).
+        """
+        n = len(fyz_messages) if fyz_messages else 0
+        if n == 0:
+            return []
+
+        idx = []
+        # --- normalise the raw field into a list of ints ---
+        if raw is None:
+            vals = []
+        elif isinstance(raw, (list, tuple)):
+            vals = list(raw)
+        elif isinstance(raw, int):
+            vals = [raw]
+        elif isinstance(raw, str):
+            vals = re.findall(r"\d+", raw)
+        else:
+            vals = []
+
+        for v in vals:
+            try:
+                i = int(v)
+            except (TypeError, ValueError):
+                continue
+            if 1 <= i <= n and i not in idx:
+                idx.append(i)
+
+        # --- safety net: if nothing valid reported, scan the script for names ---
+        if not idx and script:
+            low = script.lower()
+            for i, m in enumerate(fyz_messages, 1):
+                nm = (m.get("name") or "").strip()
+                if nm and re.search(r"\b" + re.escape(nm.lower()) + r"\b", low):
+                    idx.append(i)
+
+        return idx
+
     def _build_decision_prompt(self, time_str: str, time_of_day: str, 
                               recent_plays: List[dict], available_songs: List[dict],
                               replay_choices: List[dict] = None,
@@ -764,7 +876,7 @@ class AgenticRadioController:
                               handoff_mode: str = None, handoff_from: str = None,
                               shift_elapsed_h: float = 0.0, shift_remaining_h: float = 0.0,
                               resumed_gap_h: float = 0.0, dj_just_started: bool = False,
-                              for_you_zone: dict = None) -> str:
+                              for_you_zone: dict = None, station_id_due: bool = True) -> str:
         """Build full autonomy prompt for LLM"""
         replay_choices = replay_choices or []
         recent_artists = recent_artists or set()
@@ -839,7 +951,9 @@ The station was quiet for about {gap_txt} (the stream dropped / went off). You a
 
             howto = """- These are REAL listeners getting through, live. You are seeing them for the FIRST TIME.
 - You do NOT have to read them all in one go. This is a SEGMENT that can span a couple of songs.
-  Decide how many to read in THIS break (1 to {n}) and report that number in "messages_read".
+  Decide WHICH of the {n} message(s) to read in THIS break, and list their numbers in "messages_read".
+  - Example: if you read message [2] first, then message [1], set "messages_read": [2, 1].
+  - Read them in whatever order feels right for the moment - you choose which one lands first.
   - If you read only some, the rest stay for your next break - so you can let each one breathe.
   - Reading 1 deep message and sitting with it is often better than rushing through 3.
   - You can also read 2-3 quick ones together if they're light.
@@ -863,8 +977,8 @@ You have {n_avail} message(s) waiting. You are seeing them for the FIRST TIME, l
 How to handle it:
 {howto}
 
-IMPORTANT: In your JSON, set "messages_read" to how many of the {n_avail} message(s) above you
-actually read this break (1 to {n_avail}). The ones you don't read will come back to you next break.
+IMPORTANT: In your JSON, set "messages_read" to the LIST of message numbers you actually read
+this break, in the order you read them, e.g. [2, 1]. The ones you don't read stay for your next break.
 """
 
         current_str = ""
@@ -878,9 +992,28 @@ Just finished playing:
         # DJ identity block
         if dj_name:
             persona_line = f" Your vibe: {dj_persona}." if dj_persona else ""
-            dj_identity = f'You are the on-air DJ "{dj_name}" for {self.station_name}.{persona_line}\nSpeak in first person as {dj_name} (e.g. "I\'m {dj_name}").\n'
+            dj_identity = f'You are the on-air DJ "{dj_name}" for {self.station_name}.{persona_line}\nYou are {dj_name}. Speak naturally in first person — like a real radio host talking to friends, not an announcer.\n'
         else:
             dj_identity = f"You are the AI DJ for {self.station_name} with FULL AUTONOMY.\n"
+
+        # === STATION ID block (FCC-style: once per hour, NOT every break) ===
+        if station_id_due:
+            station_id_block = f"""
+=== STATION ID: DUE THIS BREAK (once-an-hour) ===
+This break is the station's identification for this hour, like real US radio does at the top of the hour.
+- Say the station name and frequency ONCE, naturally, somewhere in the script: "{self.station_name}".
+- Weave it in like a real host would ("you're locked into {self.station_name}", "this is {self.station_name}", etc.) — do NOT make it a stiff legal announcement.
+- This is the ONLY break this hour where you mention the station name/frequency.
+"""
+        else:
+            station_id_block = f"""
+=== STATION ID: NOT DUE (do NOT identify the station) ===
+Real DJs do NOT say the station name or frequency on every break — that sounds like an advert and annoys listeners.
+- Do NOT say "{self.station_name}" or the frequency (105.9 / one o five point nine) this break.
+- Do NOT introduce yourself by name this break either.
+- Just talk like a person: react to the song, tell a story, set up what's next. That's it.
+- If you catch yourself starting with "I'm {dj_name}, you're locked into..." — stop. Say something real instead.
+"""
         
         # Handoff block (rotating DJ)
         if handoff_mode == 'goodbye':
@@ -904,8 +1037,13 @@ You ({dj_name}) are just taking over the mic from {handoff_from}.
         else:
             handoff_block = ""
         
+        # A handoff break already has its own instructions (greet / sign off), so we don't
+        # nag about station-ID frequency there — let the handoff block own the moment.
+        if handoff_mode in ('hello', 'goodbye'):
+            station_id_block = ""
+        
         prompt = f"""{dj_identity}
-{force_instruction}
+{station_id_block}{force_instruction}
 {session_memory}{shift_time}{resume_block}{handoff_block}{fyz_block}
 Current Context:
 - Time: {time_str} ({time_of_day})
@@ -960,13 +1098,28 @@ Decision Guidelines:
    
 Script length guide: 20s = ~50 words minimum, 60s = ~150 words. Let the intent guide the length.
 
+7. OPTIONAL - "TALK OVER THE INTRO" (the pro move):
+   Sometimes a great DJ doesn't stop before the song - they ride the intro. The song
+   comes up softly UNDER your voice, you keep talking over it, and your LAST word lands
+   exactly as the song's beat/vocal kicks in. That is called "hitting the post".
+   - Set "talk_over_intro": true when the moment calls for it - usually a confident,
+     energetic, or celebratory break, or when you want to hand off straight into a banger.
+   - Set it false for quiet, heavy, or emotional breaks (there you want a clean beat of
+     silence first, so the song lands on its own).
+   - Do NOT do it every break - that becomes a formula. Mix it up: some breaks clean,
+     some riding the intro. The surprise is the point.
+   - When true, end your script on a strong, punchy closing line - because that last
+     line is what will land ON the post. Do not trail off.
+   - Code handles the timing/mixing; you just decide true or false.
+
 Respond ONLY with valid JSON (no markdown):
 {{
   "reasoning": "Brief explanation of your choice (2-3 sentences)",
   "intent": "trivia|story|weather|wisdom|dedication|celebration|vibe-check|for-you-zone|energetic|chill|surprise",
   "next_song_id": "0",
   "script": "Your DJ transition script here with phonetic Hindi (minimum 20s, longer if the moment calls for it)",
-  "messages_read": 1,
+  "messages_read": [1],
+  "talk_over_intro": false,
   "repeat_reason": "ONLY if you picked from the ALREADY PLAYED list — a strong justification. Empty string otherwise.",
   "vibe_notes": "Optional mood note"
 }}

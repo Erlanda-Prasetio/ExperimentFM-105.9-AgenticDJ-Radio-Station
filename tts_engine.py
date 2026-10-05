@@ -44,7 +44,7 @@ class TTSEngine:
             gender: Voice gender (male/female, uses main DJ if None)
             skip_processing: Skip radio processing chain (test raw TTS quality)
             voice_name: Explicit named voice (e.g. "ara", "jr", "naksh") - overrides language/gender
-            speed: Playback tempo multiplier (1.0 = normal, pitch preserved). Defaults to TTS_SPEED env var or 1.05.
+            speed: Playback tempo multiplier (1.0 = normal, pitch preserved). Defaults to TTS_SPEED env var or 1.0.
             cfg_strength: Voice guidance strength. Higher = more faithful to reference (but stiffer/artifacts).
                           None = auto (2.2 for female, 1.6 for male). Overrides env TTS_CFG_STRENGTH.
             seed: Random seed for reproducibility. None = random each call (natural variation). Fixed = identical output.
@@ -52,9 +52,9 @@ class TTSEngine:
         Returns:
             Path to audio file
         """
-        # Resolve speed: explicit arg > TTS_SPEED env > 1.05 default
+        # Resolve speed: explicit arg > TTS_SPEED env > 1.0 default
         if speed is None:
-            speed = float(os.getenv("TTS_SPEED", "1.05"))
+            speed = float(os.getenv("TTS_SPEED", "1.0"))
         speed = float(speed)
         
         # Resolve cfg_strength: explicit arg > env TTS_CFG_STRENGTH > auto (gender-based)
@@ -103,7 +103,7 @@ class TTSEngine:
         
         return output_path
     
-    def _generate_f5tts(self, text: str, output_path: str, ref_voice: str, ref_text: str, language: str = "english", skip_processing: bool = False, speed: float = 1.05, cfg_strength: float = None, seed: int = None):
+    def _generate_f5tts(self, text: str, output_path: str, ref_voice: str, ref_text: str, language: str = "english", skip_processing: bool = False, speed: float = 1.0, cfg_strength: float = None, seed: int = None):
         """Generate using F5-TTS API"""
         import sys
         sys.path.insert(0, "C:/sourceCode/TTS/.venv/Lib/site-packages")

@@ -159,6 +159,7 @@ Rata-rata lagu 3.7 menit, generate cuma ~25 detik. Buffer ~2 menit. Nol dead air
 - ✅ **Pre-generation** — audio siap sebelum lagu abis
 - ✅ **Rantai radio profesional** — EQ, kompresi, reverb, limiter, normalisasi LUFS
 - ✅ **Ducking otomatis** — musik turun saat DJ ngomong
+- ✅ **"Bruce feature"** — DJ ngomong di atas intro lagu, kata terakhirnya mendarat tepat di post (beat/drop lagu)
 
 ---
 
@@ -172,7 +173,8 @@ C:/sourceCode/RadioExperiment/
 ├── listener_seeds.json         # Pool fakta For You Zone (kota/nama/occasion/question/request)
 ├── tts_engine.py               # F5-TTS + radio processing + cache
 ├── voice_config.py             # Definisi voice (NAMED_VOICES: naksh/ara/jr)
-├── audio_engine.py             # Mixer real-time + pemilihan output device (A2DP)
+├── audio_engine.py             # Mixer real-time + pemilihan output device (A2DP) + normalisasi loudness
+├── song_intro.py               # Deteksi panjang intro lagu (untuk "Bruce feature")
 ├── audio_processing.py         # Rantai radio (pedalboard + pyloudnorm)
 ├── playlist_manager.py         # Scan library + metadata
 ├── phonetic_respell.py         # Map pengucapan nama Hindi/Bollywood
@@ -332,6 +334,9 @@ FYO_REQUEST_CHANCE=0.25              # porsi pesan yang berupa REQUEST musik (so
 |---|---|---|
 | `SHIFT_HOURS` | Panjang shift DJ | 3 = rotasi tiap 3 jam |
 | `TTS_SPEED` | Tempo suara DJ | 1.0 = normal, 1.05 = sedikit cepat |
+| `MUSIC_LUFS` | Target loudness lagu | -16.0 = sama dgn suara DJ (seamless) |
+| `MUSIC_MAX_GAIN_DB` | Batas boost lagu pelan | 8.0 = jangan terlalu dinaikin |
+| `BRUCE_DUCK` | Seberapa pelan intro lagu saat DJ ngomong di atasnya | 0.22 = lagu kedengaran tipis di belakang suara |
 | `LLM_TEMPERATURE` | Kreativitas script | naik = lebih liar, turun = lebih aman |
 | `FYO_BUSY_*` | Jendela prime time | geser jam rame For You Zone |
 | `FYO_*_CHANCE` | Frekuensi sesi | naik = For You Zone lebih sering |

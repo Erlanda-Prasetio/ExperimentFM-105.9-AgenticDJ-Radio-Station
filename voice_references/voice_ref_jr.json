@@ -1,7 +1,8 @@
 {
   "voice_name": "jr",
   "file": "voice_ref_jr.wav",
-  "source": "radio-dj-on-air-live-endorsement-read-shorts-radio-dj-radiohost-onair_MDXStnpb.mp3",
+  "source": "Radio DJ On-Air LIVE Endorsement Read! #shorts #radio #dj #radiohost #onair.mp3",
+  "segment": "0.0s - 10.4s (energetic car-endorsement read)",
   "duration_s": 10.4,
   "sample_rate": 44100,
   "channels": 1,
@@ -10,6 +11,6 @@
   "style": "energetic radio endorsement read",
   "transcript": "Hey, it's JR. Now if you're looking to buy a new car, truck, or SUV, there is no better place to do it than at Castle Rock Chevrolet Buick GMC. My girl Natalie over there is an absolute gem.",
   "transcribed_by": "faster-whisper small (en)",
-  "notes": "Trimmed at 10.4s to end on a complete sentence ('...absolute gem.'). Original audio was 12.7s and cut off mid-sentence ('Owning a vehicle is...').",
-  "cfg_strength_suggestion": 1.6
+  "notes": "REVERTED to this segment after testing a calmer segment (27.25-39.40s). The calm reference removed artefacts but made Junior FLAT and 'bablas' (no pauses) - a worse trade for radio, which needs life. User verdict: old hype ref at cfg 1.8/2.2 is still better regardless of seed. The calm cut is kept as voice_ref_jr_CALM_ad.wav for reference.",
+  "cfg_strength_suggestion": 1.8
 }

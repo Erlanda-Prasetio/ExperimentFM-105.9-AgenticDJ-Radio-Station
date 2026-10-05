@@ -2,6 +2,8 @@
 Real-time audio mixing engine for Experiment FM 105.9
 Handles multiple audio streams with crossfading
 """
+import os
+import json
 import numpy as np
 import sounddevice as sd
 import librosa
@@ -10,6 +12,113 @@ from queue import Queue
 from dataclasses import dataclass
 from typing import Optional
 import time
+
+
+# --- Music loudness normalization (songs only; DJ voice is already -16 LUFS) ---
+# Songs come in at wildly different levels (-10 to -15 dB). Without this, the DJ
+# sounds quiet next to loud tracks and every song change jumps in volume. We measure
+# each song once and cache the gain, so repeat plays are instant.
+MUSIC_LUFS = float(os.getenv("MUSIC_LUFS", "-16.0"))     # target integrated loudness (matches DJ voice @ -16 LUFS)
+MUSIC_MAX_GAIN_DB = float(os.getenv("MUSIC_MAX_GAIN_DB", "8.0"))  # don't boost a quiet track to death
+_LOUDNESS_CACHE_FILE = os.path.join("tts_cache", "loudness_cache.json")
+_loudness_cache = None
+
+
+def _load_loudness_cache() -> dict:
+    global _loudness_cache
+    if _loudness_cache is None:
+        try:
+            with open(_LOUDNESS_CACHE_FILE, "r", encoding="utf-8") as f:
+                _loudness_cache = json.load(f)
+        except Exception:
+            _loudness_cache = {}
+    return _loudness_cache
+
+
+def _save_loudness_cache():
+    if _loudness_cache is None:
+        return
+    try:
+        os.makedirs(os.path.dirname(_LOUDNESS_CACHE_FILE), exist_ok=True)
+        with open(_LOUDNESS_CACHE_FILE, "w", encoding="utf-8") as f:
+            json.dump(_loudness_cache, f, indent=0)
+    except Exception:
+        pass
+
+
+def _file_sig(filepath: str) -> str:
+    """Cache key: path + size + mtime, so a changed file re-measures."""
+    try:
+        st = os.stat(filepath)
+        return f"{filepath}|{st.st_size}|{int(st.st_mtime)}"
+    except Exception:
+        return filepath
+
+
+def trim_trailing_silence(data: np.ndarray, sr: int, threshold: float = 0.005) -> np.ndarray:
+    """Trim trailing near-silence from a (samples, channels) array.
+
+    Used on DJ voice so the 'post' lands on the last WORD, not on the tail silence
+    F5-TTS leaves after it. Returns a shorter array (never empty).
+    """
+    if data is None or data.size == 0:
+        return data
+    mono = np.abs(data).max(axis=1) if data.ndim > 1 else np.abs(data)
+    nz = np.where(mono > threshold)[0]
+    if nz.size == 0:
+        return data
+    end = int(nz[-1]) + int(0.05 * sr)   # keep 50ms tail so it doesn't clip the word
+    end = min(end, len(data))
+    return data[:end]
+
+
+def prepend_silence(data: np.ndarray, seconds: float, sr: int) -> np.ndarray:
+    """Prepend `seconds` of silence to a (samples, channels) array.
+
+    Used to start a song LATE so its intro rides under the DJ voice and the post
+    lands exactly when the voice stops.
+    """
+    if data is None or seconds <= 0:
+        return data
+    pad = int(seconds * sr)
+    if data.ndim > 1:
+        silence = np.zeros((pad, data.shape[1]), dtype=data.dtype)
+    else:
+        silence = np.zeros(pad, dtype=data.dtype)
+    return np.concatenate([silence, data], axis=0)
+
+
+def measure_gain(filepath: str, data: np.ndarray, sr: int) -> float:
+    """Return a linear gain to bring this track to MUSIC_LUFS (cached, capped, peak-safe)."""
+    key = _file_sig(filepath)
+    cache = _load_loudness_cache()
+    if key in cache:
+        return float(cache[key])
+
+    gain = 1.0
+    try:
+        import pyloudnorm as pyln
+        meter = pyln.Meter(sr)
+        loudness = meter.integrated_loudness(data)  # data = (samples, channels)
+        if np.isfinite(loudness):
+            gain_db = MUSIC_LUFS - loudness
+            gain_db = max(-MUSIC_MAX_GAIN_DB, min(MUSIC_MAX_GAIN_DB, gain_db))
+            gain = float(10 ** (gain_db / 20.0))
+    except Exception as e:
+        print(f"[Loudness] Measure failed ({e}) - leaving gain at 1.0")
+        gain = 1.0
+
+    # Peak safety: never let the boosted signal clip.
+    try:
+        peak = float(np.max(np.abs(data * gain))) if data.size else 0.0
+        if peak > 0.99:
+            gain *= (0.99 / peak)
+    except Exception:
+        pass
+
+    cache[key] = round(gain, 6)
+    _save_loudness_cache()
+    return gain
 
 
 @dataclass
@@ -60,8 +169,12 @@ class RealtimeRadioMixer:
         
         print(f"[Mixer] Initialized: {samplerate}Hz, {channels}ch, blocksize={blocksize}")
     
-    def load_audio(self, filepath: str, name: str) -> AudioTrack:
-        """Load audio file and convert to mixer format"""
+    def load_audio(self, filepath: str, name: str, kind: str = "music") -> AudioTrack:
+        """Load audio file and convert to mixer format.
+
+        kind='music' -> apply loudness normalization (songs vary -10..-15 dB).
+        kind='voice' -> no gain (DJ voice is already mastered to -16 LUFS).
+        """
         print(f"[Mixer] Loading: {filepath}")
         
         # Load with librosa (handles MP3, WAV, etc.)
@@ -73,6 +186,16 @@ class RealtimeRadioMixer:
         
         # Transpose to (samples, channels) format
         data = data.T
+
+        # Music loudness normalization (DJ voice is left untouched)
+        if kind == "music":
+            try:
+                g = measure_gain(filepath, data, sr)
+                if abs(g - 1.0) > 0.01:
+                    data = data * g
+                    print(f"[Loudness] {name}: gain x{g:.3f} ({20*np.log10(g):+.1f} dB) -> {MUSIC_LUFS} LUFS")
+            except Exception as e:
+                print(f"[Loudness] Skip for {name}: {e}")
         
         track = AudioTrack(
             data=data,

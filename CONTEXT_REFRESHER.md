@@ -88,9 +88,9 @@ LLM_API_KEY=<user_key>
 ### TTS Settings (F5-TTS)
 ```python
 nfe_step = 64                       # Quality/speed balance
-cfg_strength = 2.2 (CARA) / 1.6 (Naksh)  # Female needs higher guidance
+cfg_strength = 2.2 (CARA) / 1.6 (Naksh) / 1.8 (Junior)  # Female needs higher guidance
 sway_sampling_coef = -1.0           # Deterministic
-speed = 1.05                        # 5% faster (pitch preserved)
+speed = 1.0                         # normal tempo (pitch preserved)
 ```
 
 ### Audio Processing Chain
@@ -143,7 +143,7 @@ latency = 'high'                    # Prioritize stability over low-latency
 - [x] Radio processing chain (compression, EQ, reverb, limiter)
 - [x] LUFS normalization (-16 LUFS broadcast standard)
 - [x] Buffer optimization (4096 blocksize, no underruns)
-- [x] Pitch-preserved speed adjustment (1.05x)
+- [x] Pitch-preserved speed adjustment (1.0x, normal tempo)
 
 ### 4. **Bollywood Pronunciation**
 - [x] 150+ hardcoded phonetic respellings
@@ -179,6 +179,16 @@ latency = 'high'                    # Prioritize stability over low-latency
 - [x] Each break speaks in the correct voice (`voice_name` passed per call to TTS)
 - [x] Persona field OPTIONAL (empty = just the name; no persona needed for handoff)
 - [x] Single-DJ playlists (Punjab, ats) unaffected — no roster entry = no handoff
+
+### 9. **"Bruce feature" — talk over the song intro (hit the post)**
+- [x] `song_intro.py::detect_intro()` — finds where a song's body kicks in (intro length), cached
+- [x] LLM decides `talk_over_intro` per break (true for energetic/celebratory, false for quiet/heavy) — never every break
+- [x] CODE does the mixing: song plays from the TOP, ducked (`BRUCE_DUCK`, default 0.22) under the voice; music lifts to full at the **post** = `max(voice_len, intro)`
+  - DJ talks longer than intro → lift lands on the DJ's **last word**
+  - intro longer than the DJ → lift lands on the song's **drop**
+- [x] No dead air: the song always plays under the voice (never a silent delay)
+- [x] Voice tail silence trimmed (`trim_trailing_silence`) so the post lands on the last WORD
+- [x] Tests: `test_bruce.py` (10/10 math), `test_bruce_render.py` (14/14 real audio), `test_bruce_mixer.py` (6/6 real mixer callback), `test_bruce_llm.py` (14/14 live LLM)
 
 ---
 
@@ -219,7 +229,7 @@ AUTONOMOUS CYCLE:
 │    - Clean punctuation (! → .)                   │
 │    - F5-TTS: raw audio generation                │
 │    - Radio processing chain                      │
-│    - Speed up 1.05x (pitch preserved)            │
+│    - Speed 1.0x (pitch preserved)                │
 └─────────────────────────────────────────────────┘
             ↓
 ┌─────────────────────────────────────────────────┐
@@ -250,7 +260,7 @@ AUTONOMOUS CYCLE:
 ### Audio Pipeline
 ```
 TEXT → Phonetic Respelling → F5-TTS (raw) →
-   → Radio Processing Chain → Speed 1.05x →
+   → Radio Processing Chain → Speed 1.0x →
       → Cache → Real-time Mixer → Output
 ```
 
@@ -299,6 +309,10 @@ RAW TTS WAV (24kHz) → Resample (48kHz) →
 12. ✅ **Double-append history bug** - guard `if fp not in play_history`
 13. ✅ **Only 1 decision logged** - pre-generated decisions now logged too
 14. ✅ **Hallucinated song fallback** - was `available[0]` (same song) → now `random.choice`
+15. ✅ **Over-identification (FCC-style fix)** - DJ said "I'm X, you're locked into Experiment FM 105.9" on 55% of breaks → now station ID is once per clock-hour only (see below)
+16. ✅ **For You Zone listener read twice** - the DJ may read listener messages in ANY order, but the code assumed "first N" → it logged the wrong messages and left the actually-read one in the queue (read again with a different response). Fix: the DJ now reports the NUMBERS it read (`"messages_read": [3, 1]`); code consumes exactly those. `_resolve_messages_read()` handles list/int/string shapes + a name-scan safety net.
+17. ✅ **Inconsistent music loudness** - songs ranged -8.5 to -11.6 LUFS while the DJ voice is -16 LUFS → DJ sounded quiet next to loud tracks and every song change jumped in volume. Fix: `audio_engine.measure_gain()` normalizes each SONG to `MUSIC_LUFS` (-16, matches the DJ) on load, cached per file (path+size+mtime). DJ voice (`kind="voice"`) is never touched.
+18. ✅ **Bruce feature (talk over intro)** - `song_intro.py::detect_intro()` + controller branch: song plays from the top, ducked under the DJ voice, and the music lifts to full at the **post** = `max(voice_len, intro)` → lands either on the DJ's last word or on the song's drop, never in dead air. LLM decides true/false per break; CODE owns the timing. `BRUCE_DUCK` (default 0.22) in `.env`.
 
 ---
 
@@ -387,20 +401,33 @@ mutagen==1.48.0                 # MP3 metadata
 - Professional broadcast sound: warmth, presence, space
 - Removes "synthetic" feel completely
 
-### Why 1.05x Speed?
-- F5-TTS default slightly slow
-- 5% faster = more engaging, radio-style pacing
-- Pitch preserved (no chipmunk effect)
+### Why 1.0x Speed (not 1.05)?
+- F5-TTS default is slightly slow, so 1.05x was used early on for "radio" pacing.
+- Later set back to **1.0x** (normal). `.env TTS_SPEED=1.0` is authoritative.
+- Code default also 1.0; pitch is preserved either way (ffmpeg atempo).
 
 ### Why Phonetic Respelling?
 - LLM generates phonetics inconsistently
 - Hardcoded = reliable, consistent pronunciation
 - 150+ entries cover common Bollywood names
 
+### Why FCC-style Station ID (once per hour)?
+- Real US radio identifies once per hour (top of the hour), NOT every break.
+- Data: the DJ said "I'm X, you're locked into Experiment FM 105.9" on 55% of breaks → sounds like a template → listeners tune out.
+- Fix: CODE tracks the clock-hour of the last ID; the prompt asks for an ID only when the hour has turned, and explicitly FORBIDS station name / frequency / self-intro on other breaks.
+- Handoff breaks (hello/goodbye) skip the ID block (the handoff instructions own that moment).
+- State persisted as `last_station_id_hour` in `radio_state_<slug>.json`.
+
 ### Why DJ CARA (GTA V)?
 - Expressive, energetic reference
 - Much better than generic "ara" voice
 - GTA radio DJs designed for engaging personality
+
+### Why "talk over the intro" (the Bruce feature)?
+- A real DJ's signature move: ride the intro, land their last word on the song's first beat ("hitting the post").
+- **The LLM decides WHETHER** (it reads the moment — energetic/celebratory = yes, heavy/quiet = no). **The CODE owns the timing** — it knows the voice length and the song's intro length, so alignment is exact, not guessed.
+- The song plays from the TOP, ducked, under the voice — no dead air. Music lifts at `max(voice_len, intro)`, so it lands on the DJ's last word OR on the song's drop, whichever comes later.
+- Never every break: the prompt tells the DJ to mix it up, so it stays a surprise, not a formula.
 
 ---
 
@@ -463,6 +490,40 @@ A downtime gap ≥ 0.5h triggers ONE light, human "we're back on air" nod (optio
 
 ---
 
+## 🔬 Junior Voice — Final Settings (after RLHF tuning)
+
+Junior's voice went through an extensive **RLHF-style preference-labeling** session
+(multiple batches, human ear labels) to remove artefacts and misfired expressiveness.
+**Verdict: the original reference at cfg 1.8 is the best trade-off — diminishing returns after that.**
+
+### Locked settings
+| Knob | Value | Notes |
+|---|---|---|
+| Reference | `voice_references/voice_ref_jr.wav` (0–10.4s) | original energetic car-endorsement read |
+| `cfg` | **1.8** | 2.2 also fine; 1.8 slightly livelier |
+| `speed` | **1.0** | |
+| Frequency phrase | **"one o five point nine"** | `normalize_numbers()` — "o" (letter name) renders cleaner than "oh" |
+| Robust seed pool | **736123, 233578** | cross-text verified (clean on 3+ different scripts) |
+
+### What was tried and REJECTED
+| Attempt | Result |
+|---|---|
+| Calm reference segment (27.25–39.40s of the source) | ❌ removed artefacts but made it **flat + "bablas"** (no pauses) — worse trade for radio |
+| Intro-chat reference segment (0–11.4s) | ❌ user: *"both tune intro IS SOO BAD"* |
+| cfg sweep 1.6 / 1.8 / 2.0 | 1.8 chosen (1.6 too flat, 2.0 fine but 1.8 preferred) |
+| speed 0.90 | not chosen (1.0 kept) |
+| Stitch/pause-injection (segmented generation + silence gaps) | ❌ diminishing return; stopped |
+| Best-of-N automatic picker | ❌ no cheap metric separates good/bad takes |
+
+### Key findings
+1. **Seed pool WORKS** — determinism confirmed (same seed + same text = byte-identical audio).
+2. **Artefacts are a SEED × PHRASE interaction** — a seed can be perfect on one line and broken on another. Only ~10% of seeds are robust across texts.
+3. **Clean ≠ alive** — the calm reference killed artefacts but also killed the energy radio needs. Occasional artefacts are the accepted cost of a lively voice.
+4. **`phonetic_respell.normalize_numbers()`** spells "105.9" → "one o five point nine" so the LLM can keep writing "105.9".
+
+
+---
+
 ## 📻 For You Zone (two-LLM listener segment)
 
 ### The idea
@@ -480,10 +541,14 @@ DJ LLM        -> owns the REACTION (reads it cold; answers a question, reacts to
 
 ### Sessions (not single breaks)
 A **session** is a batch of listener messages that spans several breaks. CODE generates the whole
-batch up front (cheap: ~5s/message), then the DJ decides **per break** how many to read and reports
-it via `messages_read`. The pattern is **free** — the DJ may read 1 and sit with it, or 3 in a row.
-Every break is still `voice → song`, so the **min-1-song rule is automatic**.
+batch up front (cheap: ~5s/message), then the DJ decides **per break** WHICH to read and reports
+the NUMBERS via `messages_read` (e.g. `[3, 1]` = read #3 then #1). The pattern is **free** — the DJ
+may read 1 and sit with it, or 3 in a row, in whatever order fits the moment.
+Every break is still `voice → song`, so the **min 1 song rule is automatic**.
 Unread messages carry over to the next break until the session drains.
+IMPORTANT: each break the prompt re-numbers the REMAINING messages from 1, so the reported numbers
+are relative to the current queue. `_resolve_messages_read()` consumes exactly those numbers and
+keeps the rest in order (plus a name-scan safety net if the LLM reports the field oddly).
 
 ### Time-of-day behaviour (CODE owns the schedule)
 Busy window = **17:00–23:00** (prime time); everything else = quiet (until tuned).
@@ -554,7 +619,7 @@ CODE gates it (min gap + chance)  ->  LISTENER LLM writes message
 each break:
   if not force_song AND not handoff:
       if session active (fyz_queue not empty):
-          hand remaining messages to the DJ           # DJ reads N, reports messages_read
+          hand remaining messages to the DJ           # DJ reads some, reports messages_read [nums]
       elif songs_since >= FYO_MIN_GAP_SONGS:
           prof = time_profile()                        # busy vs quiet
           if random() < prof.sessions_chance:
@@ -562,7 +627,7 @@ each break:
               fyz_queue = generate_session(..., n, tone=prof.tone)
 ```
 The DJ prompt gets an `=== IT'S FOR YOU ZONE ===` block listing all waiting messages and instructions
-to read some now (reporting `messages_read`), name each person, match the emotion, then pick a fitting
+to read some now (reporting `messages_read` as the list of numbers), name each person, match the emotion, then pick a fitting
 song. Unread messages return next break until the queue drains. Min-gap restarts from session END.
 Anti-repeat: `fyz_used_names / fyz_used_cities / fyz_used_occasions`.
 
