@@ -1,0 +1,15 @@
+{
+  "voice_name": "jr",
+  "file": "voice_ref_jr.wav",
+  "source": "radio-dj-on-air-live-endorsement-read-shorts-radio-dj-radiohost-onair_MDXStnpb.mp3",
+  "duration_s": 10.4,
+  "sample_rate": 44100,
+  "channels": 1,
+  "language": "english",
+  "gender": "male",
+  "style": "energetic radio endorsement read",
+  "transcript": "Hey, it's JR. Now if you're looking to buy a new car, truck, or SUV, there is no better place to do it than at Castle Rock Chevrolet Buick GMC. My girl Natalie over there is an absolute gem.",
+  "transcribed_by": "faster-whisper small (en)",
+  "notes": "Trimmed at 10.4s to end on a complete sentence ('...absolute gem.'). Original audio was 12.7s and cut off mid-sentence ('Owning a vehicle is...').",
+  "cfg_strength_suggestion": 1.6
+}

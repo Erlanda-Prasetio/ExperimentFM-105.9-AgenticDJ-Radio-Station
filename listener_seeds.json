@@ -1,0 +1,126 @@
+{
+  "_comment": "Curated seed pool for the For You Zone. CODE owns the facts (real cities, real-sounding names, occasion OR question); the LISTENER LLM owns the words. Regions: US, UK/Europe, Singapore/Malaysia/Indonesia. Add freely.",
+
+  "cities": [
+    {"city": "Oneonta", "region": "New York", "country": "USA"},
+    {"city": "Gary", "region": "Indiana", "country": "USA"},
+    {"city": "Tampa", "region": "Florida", "country": "USA"},
+    {"city": "Bangor", "region": "Maine", "country": "USA"},
+    {"city": "Portland", "region": "Oregon", "country": "USA"},
+    {"city": "Akron", "region": "Ohio", "country": "USA"},
+    {"city": "Bakersfield", "region": "California", "country": "USA"},
+    {"city": "Tulsa", "region": "Oklahoma", "country": "USA"},
+    {"city": "Scranton", "region": "Pennsylvania", "country": "USA"},
+    {"city": "Duluth", "region": "Minnesota", "country": "USA"},
+    {"city": "Boise", "region": "Idaho", "country": "USA"},
+    {"city": "Chattanooga", "region": "Tennessee", "country": "USA"},
+    {"city": "Amarillo", "region": "Texas", "country": "USA"},
+    {"city": "Fargo", "region": "North Dakota", "country": "USA"},
+    {"city": "Providence", "region": "Rhode Island", "country": "USA"},
+
+    {"city": "Sunderland", "region": "Tyne and Wear", "country": "UK"},
+    {"city": "Swansea", "region": "Wales", "country": "UK"},
+    {"city": "Hull", "region": "East Yorkshire", "country": "UK"},
+    {"city": "Dundee", "region": "Scotland", "country": "UK"},
+    {"city": "Leeds", "region": "West Yorkshire", "country": "UK"},
+    {"city": "Bristol", "region": "England", "country": "UK"},
+    {"city": "Belfast", "region": "Northern Ireland", "country": "UK"},
+    {"city": "Cardiff", "region": "Wales", "country": "UK"},
+    {"city": "Norwich", "region": "Norfolk", "country": "UK"},
+
+    {"city": "Cork", "region": "County Cork", "country": "Ireland"},
+    {"city": "Porto", "region": "Norte", "country": "Portugal"},
+    {"city": "Valencia", "region": "Valencian Community", "country": "Spain"},
+    {"city": "Bergen", "region": "Vestland", "country": "Norway"},
+    {"city": "Rotterdam", "region": "South Holland", "country": "Netherlands"},
+    {"city": "Lyon", "region": "Auvergne-Rhone-Alpes", "country": "France"},
+    {"city": "Turin", "region": "Piedmont", "country": "Italy"},
+    {"city": "Krakow", "region": "Lesser Poland", "country": "Poland"},
+    {"city": "Hamburg", "region": "Hamburg", "country": "Germany"},
+    {"city": "Vienna", "region": "Vienna", "country": "Austria"},
+    {"city": "Stockholm", "region": "Stockholm", "country": "Sweden"},
+    {"city": "Athens", "region": "Attica", "country": "Greece"},
+
+    {"city": "Singapore", "region": "Singapore", "country": "Singapore"},
+
+    {"city": "Kuala Lumpur", "region": "Federal Territory", "country": "Malaysia"},
+    {"city": "George Town", "region": "Penang", "country": "Malaysia"},
+    {"city": "Johor Bahru", "region": "Johor", "country": "Malaysia"},
+    {"city": "Ipoh", "region": "Perak", "country": "Malaysia"},
+    {"city": "Kota Kinabalu", "region": "Sabah", "country": "Malaysia"},
+
+    {"city": "Jakarta", "region": "Jakarta", "country": "Indonesia"},
+    {"city": "Bandung", "region": "West Java", "country": "Indonesia"},
+    {"city": "Surabaya", "region": "East Java", "country": "Indonesia"},
+    {"city": "Yogyakarta", "region": "Central Java", "country": "Indonesia"},
+    {"city": "Medan", "region": "North Sumatra", "country": "Indonesia"},
+    {"city": "Makassar", "region": "South Sulawesi", "country": "Indonesia"},
+    {"city": "Denpasar", "region": "Bali", "country": "Indonesia"}
+  ],
+
+  "names": [
+    "Mary", "Marcus", "Denise", "Gerald", "Tia", "Wesley", "Ray", "Tomas",
+    "Lena", "Sofia", "Ingrid", "Diego", "Jonas", "Farah", "Nate", "Rosa",
+    "Andre", "Salma", "Danny", "Grace", "Elena", "Bobby", "Nadia", "Colin",
+    "Victor", "Jasmine", "Hugo", "Priscilla", "Sam", "Aisha", "Omar", "Ravi",
+    "Mei", "Priya", "Devi", "Hana", "Amara", "Yuki", "Tariq", "Claire",
+    "Wei", "Siti", "Ahmad", "Nurul", "Jia", "Hafiz", "Dewi", "Rizki",
+    "Liyana", "Arif", "Putri", "Zainal", "Aina", "Faisal", "Anisa", "Reza",
+    "Kumar", "Charmaine", "Suriani", "Dinesh"
+  ],
+
+  "occasions": [
+    {"key": "birthday",       "mood": "happy",     "hint": "a birthday shout-out for someone they love"},
+    {"key": "congrats",       "mood": "happy",     "hint": "congratulations - new job, new baby, graduation, engagement"},
+    {"key": "anniversary",    "mood": "warm",      "hint": "marking an anniversary or a milestone together"},
+    {"key": "missing-someone","mood": "bittersweet","hint": "missing someone far away or someone who passed"},
+    {"key": "long-distance",  "mood": "bittersweet","hint": "a partner or friend in another city/country"},
+    {"key": "apology",        "mood": "tender",    "hint": "saying sorry to someone who's listening"},
+    {"key": "heartbreak",     "mood": "sad",       "hint": "a breakup, a fresh wound, needing the music to hold them"},
+    {"key": "lonely",         "mood": "quiet",     "hint": "alone late at night, nobody to call, just wants company"},
+    {"key": "get-well",       "mood": "gentle",    "hint": "someone sick, recovering, or going through treatment"},
+    {"key": "thank-you",      "mood": "warm",      "hint": "thanking someone - a parent, a friend, a stranger who helped"},
+    {"key": "just-because",   "mood": "easy",      "hint": "no big reason - just wanted to hear a song and say hi"},
+    {"key": "first-responder","mood": "proud",     "hint": "a nurse, driver, or night-shift worker finishing a long shift"}
+  ],
+
+  "questions": [
+    {"key": "ask-outfit",     "mood": "playful",  "hint": "what should I wear to my sister's wedding"},
+    {"key": "ask-ex",         "mood": "honest",   "hint": "should I text my ex back or leave it alone"},
+    {"key": "ask-first-dance","mood": "warm",     "hint": "what's a good song for a first dance at a wedding"},
+    {"key": "ask-moving",     "mood": "nervous",  "hint": "how do I tell my parents I'm moving abroad"},
+    {"key": "ask-gift",       "mood": "easy",     "hint": "what should I get my best friend for their 30th birthday"},
+    {"key": "ask-alone",      "mood": "curious",  "hint": "is it weird to go to a concert on my own"},
+    {"key": "ask-rough-week", "mood": "tired",    "hint": "how do I get over a really rough week"},
+    {"key": "ask-date-night", "mood": "playful",  "hint": "what should I cook for a date night at home"},
+    {"key": "ask-new-job",    "mood": "nervous",  "hint": "should I take the new job or stay where I am"},
+    {"key": "ask-confess",    "mood": "shy",      "hint": "how do I tell someone I like them"},
+    {"key": "ask-baby-gift",  "mood": "warm",     "hint": "what's a good gift for a friend who just had a baby"},
+    {"key": "ask-commute",    "mood": "tired",    "hint": "how do I survive a long commute every day"},
+    {"key": "ask-cat",        "mood": "playful",  "hint": "should I adopt a cat, talk me into it"},
+    {"key": "ask-interview",  "mood": "nervous",  "hint": "I have a job interview tomorrow, what do I say"},
+    {"key": "ask-homesick",   "mood": "quiet",    "hint": "how do I stop feeling homesick in a new city"},
+    {"key": "ask-song",       "mood": "curious",  "hint": "what song should I play to cheer myself up"}
+  ],
+
+  "requests": [
+    {"key": "req-90s-edm",     "mood": "hyped",     "hint": "something like 90s EDM or dance, if you have it in the crate"},
+    {"key": "req-old-hiphop",  "mood": "nostalgic", "hint": "some old-school hip hop, something classic"},
+    {"key": "req-slow-sad",    "mood": "blue",      "hint": "something slow and sad, I want to feel it"},
+    {"key": "req-workout",     "mood": "energised", "hint": "something with energy I can move to"},
+    {"key": "req-2000s-pop",   "mood": "nostalgic", "hint": "throwback 2000s pop, feel-good stuff"},
+    {"key": "req-guitar",      "mood": "warm",      "hint": "something with a real guitar in it"},
+    {"key": "req-chill-night", "mood": "calm",      "hint": "something chill for late night, nothing loud"},
+    {"key": "req-cry",         "mood": "tender",    "hint": "something I can have a good cry to"},
+    {"key": "req-rainy-day",   "mood": "quiet",     "hint": "something that fits a rainy day"},
+    {"key": "req-throwback",   "mood": "nostalgic", "hint": "something from when I was a teenager"},
+    {"key": "req-get-ready",   "mood": "hyped",     "hint": "something upbeat to get ready for a night out"},
+    {"key": "req-soul",        "mood": "warm",      "hint": "something with soul, something that feels good"},
+    {"key": "req-feelgood",    "mood": "happy",     "hint": "anything that'll put a smile on my face"},
+    {"key": "req-homesick",    "mood": "wistful",   "hint": "something that reminds me of home, if you have anything like that"}
+  ],
+
+  "_rules": {
+    "note": "CODE picks the seed (city+name, plus an occasion OR a question) with anti-repeat; the LISTENER LLM writes only the words. For a question, the DJ LLM ANSWERS it live like a presenter. The DJ LLM receives the finished message COLD."
+  }
+}
