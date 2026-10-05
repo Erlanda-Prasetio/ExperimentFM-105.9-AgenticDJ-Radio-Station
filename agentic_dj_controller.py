@@ -14,7 +14,7 @@ from dataclasses import dataclass, asdict
 
 from playlist_manager import PlaylistManager, Track
 from tts_engine import TTSEngine
-from audio_engine import RealtimeRadioMixer, trim_trailing_silence
+from audio_engine import RealtimeRadioMixer, AudioTrack, trim_trailing_silence, prepend_silence
 from phonetic_respell import respell, normalize_numbers
 from listener_llm import (ListenerLLM, load_seeds, pick_seed,
                           time_profile, generate_session)
@@ -453,65 +453,101 @@ class AgenticRadioController:
                 clean_script = self._prep_tts_text(decision.script)
                 dj_audio_path = self.tts.generate(clean_script, language='english', voice_name=decision.dj_voice)
             
-            # Step 3+4: DJ voice + song, with optional "Bruce feature" (talk over the intro)
-            bruce = bool(getattr(decision, 'talk_over_intro', False))
+            # Step 3+4: DJ voice + song. THREE modes, decided by CODE (reliable):
+            #   RIDE (Bruce) : short script over a real intro -> the song's INTRO rides
+            #                  (ducked) under the voice; music lifts to full on the last word.
+            #   TALK-UP      : any "hit the post" that can't ride -> the music comes up
+            #                  (from the top) in the LAST FEW SECONDS of the script and
+            #                  swells to full right as the DJ finishes.
+            #   NORMAL       : the DJ talks first, then the song starts from the TOP.
             song_track = self.mixer.load_audio(str(next_song.filepath), name=next_song.title, kind="music")
+            intro = detect_intro(str(next_song.filepath))
+            voice_track = self.mixer.load_audio(dj_audio_path, name="dj_intro", kind="voice")
+            voice_track.data = trim_trailing_silence(voice_track.data, voice_track.samplerate)
+            voice_len = voice_track.duration
+            sr = voice_track.samplerate
 
-            if bruce:
-                # --- TALK OVER THE INTRO (hitting the post) ---
-                # The song starts from the TOP, quietly, under the DJ's voice - no dead air.
-                # The music lifts to full at the "post": the LATER of
-                #   (a) the moment the DJ's voice ends, or
-                #   (b) the moment the song's body kicks in (end of the intro).
-                # So the lift always lands either on the DJ's last word, or right on the
-                # song's drop - never in the middle of nowhere.
-                voice_track = self.mixer.load_audio(dj_audio_path, name="dj_intro", kind="voice")
-                voice_track.data = trim_trailing_silence(voice_track.data, voice_track.samplerate)
-                voice_len = voice_track.duration
-                intro = detect_intro(str(next_song.filepath))
-                duck = float(os.getenv("BRUCE_DUCK", "0.22"))  # music sits low under the voice
-                post = max(voice_len, intro)                   # when the music comes up to full
+            entry = max(0.0, voice_len - intro)   # RIDE: song start so the body lands on the last word
+            duck = float(os.getenv("BRUCE_DUCK", "0.22"))
+            lead = float(os.getenv("TALKUP_LEAD_S", "2.5"))       # TALK-UP: music comes on this early
+            talkup_duck = float(os.getenv("TALKUP_DUCK", "0.5"))  # TALK-UP: level it swells in from
 
-                print(f"[Bruce] Talk over intro: voice {voice_len:.1f}s, song intro {intro:.1f}s "
-                      f"-> music lifts at {post:.1f}s (ducked to {int(duck*100)}%), "
-                      f"lands on {'your last word' if voice_len >= intro else 'the drop'}")
+            # The DJ's intent: "I want to hit the post this break."
+            want_post = bool(getattr(decision, 'talk_over_intro', False))
+            max_voice = float(os.getenv("BRUCE_MAX_VOICE_S", "18"))
+            min_intro = float(os.getenv("BRUCE_MIN_INTRO_S", "10"))
+            max_gap = float(os.getenv("BRUCE_MAX_GAP_S", "4"))
 
+            # RIDE needs a short script over a real intro with a tight gap.
+            ride = (want_post and voice_len <= max_voice
+                    and intro >= min_intro and entry <= max_gap)
+            # TALK-UP covers every other "hit the post" - it needs a script long enough
+            # to have a "last few seconds".
+            talkup = want_post and not ride and voice_len >= lead + 1.5
+
+            if ride:
+                # --- RIDE (Bruce): ride the intro, hit the post on the last word ---
+                print(f"[Bruce] Ride intro: voice {voice_len:.1f}s, intro {intro:.1f}s, "
+                      f"song enters {entry:.1f}s in, ducked to {int(duck*100)}%, "
+                      f"music lifts at {voice_len:.1f}s (on your last word)")
                 song_track.volume = duck
-                # Rebuild the timeline: song from the top (ducked) + voice, both from t=0.
+                if entry > 0.05:
+                    song_track = AudioTrack(
+                        data=prepend_silence(song_track.data, entry, sr),
+                        samplerate=sr, name=song_track.name, volume=duck)
                 self.mixer.remove_track("music")
                 self.mixer.add_track(song_track, slot="music")
                 self.mixer.add_track(voice_track, slot="voice")
-                # Ride the intro: keep the music ducked, then lift it at the post.
                 t0 = time.time()
-                while time.time() - t0 < post:
+                while time.time() - t0 < voice_len:
                     time.sleep(0.05)
                 self.mixer.set_volume("music", 1.0)
                 self.mixer.remove_track("voice")
                 print("[Bruce] Post hit - music back to full")
+            elif talkup:
+                # --- TALK-UP: music comes up in the last few seconds, swells to full on the post ---
+                start = max(0.0, voice_len - lead)   # when the music turns on
+                print(f"[Talk-up] voice {voice_len:.1f}s -> music comes up at {start:.1f}s "
+                      f"(last {lead:.1f}s), swelling {int(talkup_duck*100)}%->100% onto your last word")
+                song_track = AudioTrack(
+                    data=prepend_silence(song_track.data, start, sr),
+                    samplerate=sr, name=song_track.name, volume=talkup_duck)
+                self.mixer.remove_track("music")
+                self.mixer.add_track(song_track, slot="music")
+                self.mixer.add_track(voice_track, slot="voice")
+                t0 = time.time()
+                while True:
+                    el = time.time() - t0
+                    if el >= voice_len:
+                        break
+                    if el >= start and lead > 0:
+                        frac = min(1.0, (el - start) / lead)
+                        self.mixer.set_volume("music", talkup_duck + (1.0 - talkup_duck) * frac)
+                    time.sleep(0.05)
+                self.mixer.set_volume("music", 1.0)
+                self.mixer.remove_track("voice")
+                print("[Talk-up] Post hit - music at full")
             else:
-                # --- CLEAN BREAK (voice first, then song from the top) ---
+                # --- NORMAL: DJ talks first, then the song starts from the TOP ---
+                # The song is "delayed" by the script itself: it only begins once the DJ
+                # stops, so the vocals never clash with the voice.
                 if self.mixer.get_track_info("music"):
                     print("[Ducking] Lowering music volume to 30%")
                     self.mixer.set_volume("music", 0.3)
 
-                dj_track = self.mixer.load_audio(dj_audio_path, name="dj_intro", kind="voice")
-                self.mixer.add_track(dj_track, slot="voice")
-
-                # Wait for DJ to finish
+                self.mixer.add_track(voice_track, slot="voice")
                 print("[Press 'S' to skip DJ intro]")
-                while not dj_track.is_finished():
+                while not voice_track.is_finished():
                     time.sleep(0.1)
 
-                # Restore music volume
                 if self.mixer.get_track_info("music"):
                     print("[Ducking] Restoring music volume to 100%")
                     self.mixer.set_volume("music", 1.0)
-
-                # Remove voice track
                 self.mixer.remove_track("voice")
 
-                # Step 4: Play song from the top
-                print(f"[Playing] 🎵 {next_song.title} - {next_song.artist}")
+                print(f"[Playing] 🎵 {next_song.title} - {next_song.artist} "
+                      f"(song starts from the top after the {voice_len:.0f}s script)")
+                self.mixer.remove_track("music")
                 self.mixer.add_track(song_track, slot="music")
             
             # Step 5: PRE-GENERATE next transition while song plays
@@ -1098,19 +1134,21 @@ Decision Guidelines:
    
 Script length guide: 20s = ~50 words minimum, 60s = ~150 words. Let the intent guide the length.
 
-7. OPTIONAL - "TALK OVER THE INTRO" (the pro move):
+7. OPTIONAL - "HIT THE POST" (the pro move):
    Sometimes a great DJ doesn't stop before the song - they ride the intro. The song
-   comes up softly UNDER your voice, you keep talking over it, and your LAST word lands
+   comes up UNDER your voice, you keep talking over it, and your LAST word lands
    exactly as the song's beat/vocal kicks in. That is called "hitting the post".
-   - Set "talk_over_intro": true when the moment calls for it - usually a confident,
-     energetic, or celebratory break, or when you want to hand off straight into a banger.
+   - Set "talk_over_intro": true when you want to hit the post this break - usually a
+     confident, energetic, or celebratory break, or a handoff straight into a banger.
    - Set it false for quiet, heavy, or emotional breaks (there you want a clean beat of
      silence first, so the song lands on its own).
    - Do NOT do it every break - that becomes a formula. Mix it up: some breaks clean,
-     some riding the intro. The surprise is the point.
+     some hitting the post. The surprise is the point.
    - When true, end your script on a strong, punchy closing line - because that last
      line is what will land ON the post. Do not trail off.
-   - Code handles the timing/mixing; you just decide true or false.
+   - You may write a normal-length script when true - the code decides HOW to hit the
+     post (ride the intro if it fits, otherwise bring the music up under your last few
+     words). You just decide true or false.
 
 Respond ONLY with valid JSON (no markdown):
 {{

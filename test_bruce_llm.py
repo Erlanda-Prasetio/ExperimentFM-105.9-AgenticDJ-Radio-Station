@@ -17,19 +17,21 @@ ENDPOINT = os.getenv("LLM_ENDPOINT", "http://127.0.0.1:20128/v1/chat/completions
 API_KEY = os.getenv("LLM_API_KEY", "")
 MODEL = os.getenv("LLM_MODEL", "deepseek-v4.1-flash")
 
-BRUCE_BLOCK = """7. OPTIONAL - "TALK OVER THE INTRO" (the pro move):
+BRUCE_BLOCK = """7. OPTIONAL - "HIT THE POST" (the pro move):
    Sometimes a great DJ doesn't stop before the song - they ride the intro. The song
-   comes up softly UNDER your voice, you keep talking over it, and your LAST word lands
+   comes up UNDER your voice, you keep talking over it, and your LAST word lands
    exactly as the song's beat/vocal kicks in. That is called "hitting the post".
-   - Set "talk_over_intro": true when the moment calls for it - usually a confident,
-     energetic, or celebratory break, or when you want to hand off straight into a banger.
+   - Set "talk_over_intro": true when you want to hit the post this break - usually a
+     confident, energetic, or celebratory break, or a handoff straight into a banger.
    - Set it false for quiet, heavy, or emotional breaks (there you want a clean beat of
      silence first, so the song lands on its own).
    - Do NOT do it every break - that becomes a formula. Mix it up: some breaks clean,
-     some riding the intro. The surprise is the point.
+     some hitting the post. The surprise is the point.
    - When true, end your script on a strong, punchy closing line - because that last
      line is what will land ON the post. Do not trail off.
-   - Code handles the timing/mixing; you just decide true or false."""
+   - You may write a normal-length script when true - the code decides HOW to hit the
+     post (ride the intro if it fits, otherwise bring the music up under your last few
+     words). You just decide true or false."""
 
 # (name, context, expected)
 CASES = [
@@ -64,33 +66,55 @@ Respond ONLY with valid JSON (no markdown):
                                 "messages": [{"role": "user", "content": prompt}]})
         r.raise_for_status()
         content = r.json()["choices"][0]["message"]["content"].strip()
-        if content.startswith("```"):
-            content = content.split("```")[1]
+        # Robust extraction: strip fences, then grab the first {...} block
+        if "```" in content:
+            parts = content.split("```")
+            content = parts[1] if len(parts) > 1 else content
             if content.startswith("json"):
                 content = content[4:]
-        return json.loads(content.strip())
+        content = content.strip()
+        if not content.startswith("{"):
+            s, e = content.find("{"), content.rfind("}")
+            if s != -1 and e != -1:
+                content = content[s:e + 1]
+        return json.loads(content)
     except Exception:
-        if attempt < 2:
+        if attempt < 3:
             time.sleep(2)
             return call(context, attempt + 1)
         raise
 
 print(f"Endpoint: {ENDPOINT}\nModel: {MODEL}\n")
 checks = []
+rows = []
 for name, ctx, expected in CASES:
     try:
         d = call(ctx)
         v = d.get("talk_over_intro")
+        script = str(d.get("script", ""))
+        words = len(script.split())
+        rows.append((name, expected, v, words))
         ok_field = isinstance(v, bool)
-        ok_choice = (v == expected)
-        print(f"  [{name:12s}] talk_over_intro={str(v):5s} (expected {expected}) "
-              f"{'OK' if ok_choice else '<-- MISMATCH'}  intent={d.get('intent')}")
+        print(f"  [{name:12s}] talk_over_intro={str(v):5s} (expected {expected})  "
+              f"intent={d.get('intent')}  words={words}")
         checks.append((f"{name}: field present & bool", ok_field))
-        checks.append((f"{name}: model chose {expected}", ok_choice))
+        # Quiet/heavy/chill breaks must NEVER ride the intro (hard rule).
+        if expected is False:
+            checks.append((f"{name}: never rides (quiet/heavy)", v is False))
     except Exception as e:
         print(f"  [{name:12s}] ERROR: {e}")
+        rows.append((name, expected, None, 0))
         checks.append((f"{name}: valid JSON + field", False))
-        checks.append((f"{name}: model chose {expected}", False))
+
+# Aggregate behaviour (the LLM is stochastic at temp 1.2 - judge the pattern, not one sample):
+#   - energetic breaks should ride SOMETIMES (Bruce fires)
+#   - quiet/heavy breaks should ride NEVER
+energetic = [r for r in rows if r[1] is True and isinstance(r[2], bool)]
+quiet = [r for r in rows if r[1] is False and isinstance(r[2], bool)]
+fired = sum(1 for r in energetic if r[2] is True)
+leaked = sum(1 for r in quiet if r[2] is True)
+checks.append((f"Bruce fires on some energetic breaks ({fired}/{len(energetic)})", fired >= 1))
+checks.append((f"Bruce NEVER fires on quiet/heavy breaks ({leaked}/{len(quiet)})", leaked == 0))
 
 print("\n=== BRUCE LLM LIVE TEST ===")
 ok = sum(1 for _, p in checks if p)

@@ -62,7 +62,12 @@ def detect_intro(filepath):
 
 
 def _measure(filepath, sr=22050, max_seconds=30.0):
-    """Find the first sustained energy jump = where the main body kicks in."""
+    """Find where the song's MAIN BODY (sustained loud section) kicks in.
+
+    Stricter than the v1 detector: requires a strong energy jump that STAYS
+    loud for ~2 seconds, so it skips short drum fills, single hits, and fade-in
+    blips.  Returns 0.0 if the song starts loud from the first beat.
+    """
     try:
         y, _ = librosa.load(filepath, sr=sr, mono=True, duration=max_seconds)
     except Exception:
@@ -79,15 +84,19 @@ def _measure(filepath, sr=22050, max_seconds=30.0):
     if ref <= 1e-6:
         return 0.0
 
-    thr = 0.5 * ref
+    thr = 0.65 * ref                         # stricter: must be well into the body
     above = rms > thr
-    need = max(1, int(0.25 * sr / hop))     # must stay above threshold ~0.25s (avoid clicks)
+    need = max(1, int(0.5 * sr / hop))       # must hold above threshold ~0.5s (skip hits)
+    sustain_frames = max(1, int(2.0 * sr / hop))  # then stay loud for ~2s (real body)
     run = 0
     for i, a in enumerate(above):
         run = run + 1 if a else 0
         if run >= need:
-            t = librosa.frames_to_time(i - need + 1, sr=sr, hop_length=hop)
-            return round(min(float(t), _MAX_INTRO), 2)
+            s = i - need + 1
+            seg = rms[s:s + sustain_frames]
+            if seg.size and float(np.mean(seg > thr * 0.7)) > 0.7:
+                t = librosa.frames_to_time(s, sr=sr, hop_length=hop)
+                return round(min(float(t), _MAX_INTRO), 2)
     return 0.0
 
 

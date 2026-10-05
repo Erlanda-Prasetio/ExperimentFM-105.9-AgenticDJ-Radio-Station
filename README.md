@@ -159,7 +159,7 @@ Rata-rata lagu 3.7 menit, generate cuma ~25 detik. Buffer ~2 menit. Nol dead air
 - ✅ **Pre-generation** — audio siap sebelum lagu abis
 - ✅ **Rantai radio profesional** — EQ, kompresi, reverb, limiter, normalisasi LUFS
 - ✅ **Ducking otomatis** — musik turun saat DJ ngomong
-- ✅ **"Bruce feature"** — DJ ngomong di atas intro lagu, kata terakhirnya mendarat tepat di post (beat/drop lagu)
+- ✅ **"Bruce feature"** — DJ ngomong pas lagu mau masuk, kata terakhirnya mendarat tepat di post (beat/drop lagu). 3 mode: ride intro (script pendek), talk-up (script panjang, musik nyala di 2-3 detik terakhir), normal.
 
 ---
 
@@ -337,6 +337,11 @@ FYO_REQUEST_CHANCE=0.25              # porsi pesan yang berupa REQUEST musik (so
 | `MUSIC_LUFS` | Target loudness lagu | -16.0 = sama dgn suara DJ (seamless) |
 | `MUSIC_MAX_GAIN_DB` | Batas boost lagu pelan | 8.0 = jangan terlalu dinaikin |
 | `BRUCE_DUCK` | Seberapa pelan intro lagu saat DJ ngomong di atasnya | 0.22 = lagu kedengaran tipis di belakang suara |
+| `BRUCE_MAX_VOICE_S` | Maks panjang script untuk mode ride | 18 = script lebih panjang → pindah ke talk-up |
+| `BRUCE_MIN_INTRO_S` | Minimal panjang intro lagu untuk ride | 10 = intro pendek → talk-up |
+| `BRUCE_MAX_GAP_S` | Maks beda voice vs intro untuk ride | 4 = beda > 4s → talk-up (anti dead air) |
+| `TALKUP_LEAD_S` | Musik nyala berapa detik sebelum DJ selesai | 2.5 = musik muncul di 2.5 detik terakhir |
+| `TALKUP_DUCK` | Level awal musik saat talk-up | 0.5 = mulai setengah, naik ke full pas DJ kelar |
 | `LLM_TEMPERATURE` | Kreativitas script | naik = lebih liar, turun = lebih aman |
 | `FYO_BUSY_*` | Jendela prime time | geser jam rame For You Zone |
 | `FYO_*_CHANCE` | Frekuensi sesi | naik = For You Zone lebih sering |

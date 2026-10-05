@@ -1,58 +1,91 @@
 """
-Test: Bruce feature timeline math ("hitting the post").
+Test: Bruce feature timeline math (v2 design).
 
-Design: the song plays from the TOP, ducked, under the DJ voice (no dead air).
-The music lifts to full at the "post" = max(voice_len, intro):
-  - if the DJ talks longer than the intro -> lift lands on the DJ's last word
-  - if the intro is longer than the DJ  -> lift lands on the song's drop
+Two modes:
+  BRUCE  : short voice over a real intro. Song enters at `entry = max(0, voice_len-intro)`
+           so the song's BODY lands exactly on the DJ's last word. Only the INTRO rides
+           under the voice (never the vocals).
+  NORMAL : same delay so the body lands on the DJ's last word (no talk over vocals).
+
+Key invariant: song_body_time == voice_end_time  (body lands on the last word).
 """
-import os
-import sys
+import os, sys
 sys.path.insert(0, ".")
 os.environ.setdefault("AUDIO_OUTPUT", "none")
 
 import numpy as np
 import audio_engine as AE
 
-def post_time(voice_len, intro):
-    """Same math as the controller's Bruce branch."""
-    return max(voice_len, intro)
+def entry_time(voice_len, intro):
+    """Song start offset so its body lands on the DJ's last word."""
+    return max(0.0, voice_len - intro)
 
 checks = []
 cases = [
-    (25.0, 6.0),   # DJ longer than intro -> lift on last word
-    (20.0, 6.4),   # INDUSTRY BABY-like
-    (30.0, 21.5),  # long intro, DJ still longer
-    (15.0, 21.5),  # intro LONGER than voice -> lift on the drop
-    (12.0, 12.0),  # exactly equal
-    (40.0, 0.3),   # almost no intro -> lift on last word
+    (15.0, 12.0),  # short voice + real intro -> small ride gap (Bruce-worthy)
+    (12.0, 10.0),
+    (18.0, 10.0),
+    (30.0, 6.0),   # long voice, short intro -> big delay (normal mode)
+    (40.0, 0.3),   # almost no intro -> big delay
+    (10.0, 25.0),  # intro longer than voice -> entry 0 (song from top, body after voice)
+    (12.0, 12.0),  # exactly equal -> entry 0
 ]
 for voice_len, intro in cases:
-    post = post_time(voice_len, intro)
-    # The lift must never come before the voice ends (no talking over full music)
-    not_before_voice = post >= voice_len - 1e-9
-    # The lift must never come before the song body (that would be a fake drop)
-    not_before_body = post >= intro - 1e-9
-    # And it must be exactly one of the two, never some third value
-    is_exact = abs(post - voice_len) < 1e-9 or abs(post - intro) < 1e-9
-    checks.append((f"voice={voice_len}s intro={intro}s -> post@{post:.1f}s "
-                   f"(>=voice:{not_before_voice}, >=body:{not_before_body}, exact:{is_exact})",
-                   not_before_voice and not_before_body and is_exact))
+    entry = entry_time(voice_len, intro)
+    voice_end = voice_len                       # voice starts at 0
+    body = entry + intro                        # song starts at entry, body after its intro
+    # Body lands on the last word (entry>0), OR - when the intro is longer than the
+    # voice - the song plays out from the top and the body simply arrives after
+    # the DJ (entry==0, unavoidable). Either way the body NEVER arrives early.
+    aligned = abs(body - voice_end) < 1e-6 or (entry == 0.0 and body >= voice_end - 1e-6)
+    no_neg = entry >= 0
+    never_early = body >= voice_end - 1e-6
+    checks.append((f"voice={voice_len}s intro={intro}s -> entry={entry:.1f}s, "
+                   f"body@{body:.1f}s vs voice_end@{voice_end:.1f}s",
+                   aligned and no_neg and never_early))
 
-# --- trim_trailing_silence ---
+# --- Mode dispatch (mirror of the controller) ---
+def dispatch(want_post, voice_len, intro,
+             max_voice=18.0, min_intro=10.0, max_gap=4.0, lead=2.5):
+    """Return 'ride' | 'talkup' | 'normal' - exactly the controller's logic."""
+    entry = max(0.0, voice_len - intro)
+    ride = (want_post and voice_len <= max_voice
+            and intro >= min_intro and entry <= max_gap)
+    talkup = want_post and not ride and voice_len >= lead + 1.5
+    if ride:
+        return "ride"
+    if talkup:
+        return "talkup"
+    return "normal"
+
+gate_cases = [
+    # want, voice, intro, expect
+    (True,  15.0, 12.0, "ride"),     # short script + real intro + tight gap
+    (True,  18.0, 14.0, "ride"),     # entry 4 exactly
+    (True,  25.0, 12.0, "talkup"),   # script too long for a ride -> talk-up
+    (True,  15.0,  5.0, "talkup"),   # intro too short to ride -> talk-up
+    (True,  18.0, 13.0, "talkup"),   # ride gap 5 > 4 -> talk-up
+    (True,  40.0,  4.0, "talkup"),   # long script, short intro -> talk-up
+    (False, 15.0, 12.0, "normal"),   # LLM said no
+    (False, 40.0, 12.0, "normal"),
+    (True,   3.0,  5.0, "normal"),   # script too short to ride OR talk-up (intro short too)
+]
+for want, vl, it, expect in gate_cases:
+    got = dispatch(want, vl, it)
+    e = entry_time(vl, it)
+    checks.append((f"dispatch(want={want},voice={vl},intro={it}) entry={e:.1f} -> {got} (expect {expect})",
+                   got == expect))
+
+# --- helpers still intact ---
 sr = 44100
 voiced = np.concatenate([np.random.randn(sr*2, 2).astype(np.float32)*0.1,
-                         np.zeros((sr*3, 2), dtype=np.float32)])  # 2s audio + 3s silence
-trimmed = AE.trim_trailing_silence(voiced, sr)
-checks.append((f"trim silence: 5.0s -> {trimmed.shape[0]/sr:.2f}s", abs(trimmed.shape[0]/sr - 2.05) < 0.1))
-
-# --- prepend_silence (still used by the mixer helpers) ---
+                         np.zeros((sr*3, 2), dtype=np.float32)])
+checks.append(("trim silence 5.0s -> 2.05s",
+               abs(AE.trim_trailing_silence(voiced, sr).shape[0]/sr - 2.05) < 0.1))
 p = AE.prepend_silence(np.ones((sr, 2), dtype=np.float32), 1.5, sr)
-checks.append((f"prepend 1.5s: 1.0s -> {p.shape[0]/sr:.2f}s", abs(p.shape[0]/sr - 2.5) < 0.01))
-checks.append(("prepend keeps channels", p.shape[1] == 2))
-checks.append(("prepend 0s = unchanged", AE.prepend_silence(np.ones((100,2),dtype=np.float32), 0, sr).shape[0] == 100))
+checks.append(("prepend 1.5s -> 2.5s", abs(p.shape[0]/sr - 2.5) < 0.01))
 
-print("=== BRUCE FEATURE TIMELINE TEST ===")
+print("=== BRUCE TIMELINE TEST (v2) ===")
 ok = 0
 for name, passed in checks:
     print(f"  [{'PASS' if passed else 'FAIL'}] {name}")

@@ -1,7 +1,7 @@
 # RadioExperiment FM 105.9 - Context Refresher
 
-**Last Updated:** October 4, 2026 (night)
-**Project Status:** ✅ PRODUCTION READY - Fully Autonomous AI Radio + Persistent Anti-Repeat + Rotating DJ (Cara ↔ Junior) + For You Zone (two-LLM listener segment)
+**Last Updated:** October 5, 2026 (night)
+**Project Status:** ✅ PRODUCTION READY - Fully Autonomous AI Radio + Persistent Anti-Repeat + Rotating DJ (Cara ↔ Junior) + For You Zone (two-LLM listener segment) + Music Loudness Normalization + FCC-style Station ID + "Bruce feature" (hit the post, 3 modes)
 
 ---
 
@@ -16,13 +16,32 @@ Build a fully autonomous AI radio station with:
 
 ---
 
+## 🔖 Session Handoff (where we left off)
+
+**Date:** Oct 5, 2026 (night). User went to sleep; work committed and pushed.
+
+**Just finished — "Bruce feature" (hit the post), 3 modes:**
+- **RIDE** — short script (≤18s) over a real intro (≥10s), tight gap (≤4s): song enters at `voice_len - intro` so its body lands on the DJ's last word; only the intro rides (ducked). Never over vocals.
+- **TALK-UP** — long script / short intro: music comes up from the top in the last 2.5s and swells 50%→full on the DJ's last word.
+- **NORMAL** — no post: DJ talks first, song from the top.
+- The LLM only says *whether* to hit the post (`talk_over_intro`); **CODE picks the mode** from real lengths.
+- Also fixed the v1 reliability bug: strict intro detector (was catching the first drum hit) + the 3-mode dispatch.
+- Tests (all green): `test_bruce.py` 18/18, `test_bruce_render.py` 9/9, `test_bruce_mixer.py` 8/8, `test_talkup.py` 6/6, `test_bruce_rarity.py` 4/4, `test_bruce_llm.py` 13/13.
+
+**Not yet verified live** — the running radio still uses the old code. **Next step: restart the radio (`python agenticMain.py`) and listen** to a few transitions, then tune `TALKUP_LEAD_S` / `TALKUP_DUCK` / `BRUCE_DUCK` to taste.
+
+**Open thread:** user mentioned sourcing ad audio ("tinggal cari iklan nih buat data") — assistant recommended GTA V male DJ / studio VO over real ads (real ads are the trap: licensing + inconsistent loudness). Deferred.
+
+---
+
 ## 📁 Project Structure
 
 ```
 C:/sourceCode/RadioExperiment/
 ├── agenticMain.py                  # Entry point with playlist selector
 ├── agentic_dj_controller.py        # Autonomous AI DJ controller
-├── audio_engine.py                 # Real-time mixer (sounddevice + numpy)
+├── audio_engine.py                 # Real-time mixer (sounddevice + numpy) + loudness normalization
+├── song_intro.py                   # Song-intro detection for the "Bruce feature" (hit the post)
 ├── audio_processing.py             # Professional radio chain (pedalboard)
 ├── playlist_manager.py             # Music library & metadata
 ├── tts_engine.py                   # F5-TTS with radio processing
@@ -68,6 +87,18 @@ LLM_API_KEY=<user_key>
 # Auto-selected based on folder choice:
 # - "Punjab Classic In Order" → Naksh (male, Indian English)
 # - "Wow, this ist gud" → CARA (female, standard English)
+
+# Loudness (songs normalized to match the DJ voice)
+MUSIC_LUFS=-16.0          # target loudness for SONGS (matches DJ voice -16)
+MUSIC_MAX_GAIN_DB=8.0     # cap on boosting quiet tracks
+
+# "Bruce feature" (hit the post)
+BRUCE_DUCK=0.22           # RIDE: how low the song intro sits under the voice
+BRUCE_MAX_VOICE_S=18      # RIDE: max script length
+BRUCE_MIN_INTRO_S=10      # RIDE: min song-intro length
+BRUCE_MAX_GAP_S=4         # RIDE: max (voice_len - intro) before falling back to talk-up
+TALKUP_LEAD_S=2.5         # TALK-UP: music comes up this many seconds before the DJ finishes
+TALKUP_DUCK=0.5           # TALK-UP: level the music swells in from
 ```
 
 ### Voice References
@@ -180,15 +211,16 @@ latency = 'high'                    # Prioritize stability over low-latency
 - [x] Persona field OPTIONAL (empty = just the name; no persona needed for handoff)
 - [x] Single-DJ playlists (Punjab, ats) unaffected — no roster entry = no handoff
 
-### 9. **"Bruce feature" — talk over the song intro (hit the post)**
-- [x] `song_intro.py::detect_intro()` — finds where a song's body kicks in (intro length), cached
-- [x] LLM decides `talk_over_intro` per break (true for energetic/celebratory, false for quiet/heavy) — never every break
-- [x] CODE does the mixing: song plays from the TOP, ducked (`BRUCE_DUCK`, default 0.22) under the voice; music lifts to full at the **post** = `max(voice_len, intro)`
-  - DJ talks longer than intro → lift lands on the DJ's **last word**
-  - intro longer than the DJ → lift lands on the song's **drop**
-- [x] No dead air: the song always plays under the voice (never a silent delay)
+### 9. **"Bruce feature" — hit the post (three modes)**
+- [x] `song_intro.py::detect_intro()` — finds where a song's body kicks in (strict: 0.65×p90 + 2s sustain, so it skips drum fills / fade-in blips), cached
+- [x] LLM decides `talk_over_intro` per break — "I want to hit the post" (energetic/celebratory, NOT every break). Script length is free.
+- [x] **CODE picks the mode** (reliable, not the LLM):
+  - **RIDE (Bruce)** — short script (`≤ BRUCE_MAX_VOICE_S 18`) over a real intro (`≥ BRUCE_MIN_INTRO_S 10`) with a tight gap (`entry ≤ BRUCE_MAX_GAP_S 4`): the song enters at `entry = voice_len - intro` so its BODY lands on the DJ's **last word**; only the **intro** rides (ducked) under the voice, then music lifts to full. **Never talks over vocals.**
+  - **TALK-UP** — every other "hit the post" (long script / short intro): the music comes up **from the top** in the last `TALKUP_LEAD_S` (2.5s) of the script and swells `TALKUP_DUCK` (0.5) → full right as the DJ finishes. The DJ's final words ride the song's opening.
+  - **NORMAL** — the DJ talks first, then the song starts from the TOP (delayed by the script itself).
 - [x] Voice tail silence trimmed (`trim_trailing_silence`) so the post lands on the last WORD
-- [x] Tests: `test_bruce.py` (10/10 math), `test_bruce_render.py` (14/14 real audio), `test_bruce_mixer.py` (6/6 real mixer callback), `test_bruce_llm.py` (14/14 live LLM)
+- [x] Production coverage (if the DJ always wanted the post): RIDE ~11%, TALK-UP ~88%, NORMAL ~1%
+- [x] Tests: `test_bruce.py` (18/18 math + dispatch), `test_bruce_render.py` (9/9 real audio), `test_bruce_mixer.py` (8/8 real mixer callback), `test_talkup.py` (6/6 real mixer swell), `test_bruce_rarity.py` (4/4 mode coverage), `test_bruce_llm.py` (13/13 live LLM)
 
 ---
 
@@ -312,7 +344,8 @@ RAW TTS WAV (24kHz) → Resample (48kHz) →
 15. ✅ **Over-identification (FCC-style fix)** - DJ said "I'm X, you're locked into Experiment FM 105.9" on 55% of breaks → now station ID is once per clock-hour only (see below)
 16. ✅ **For You Zone listener read twice** - the DJ may read listener messages in ANY order, but the code assumed "first N" → it logged the wrong messages and left the actually-read one in the queue (read again with a different response). Fix: the DJ now reports the NUMBERS it read (`"messages_read": [3, 1]`); code consumes exactly those. `_resolve_messages_read()` handles list/int/string shapes + a name-scan safety net.
 17. ✅ **Inconsistent music loudness** - songs ranged -8.5 to -11.6 LUFS while the DJ voice is -16 LUFS → DJ sounded quiet next to loud tracks and every song change jumped in volume. Fix: `audio_engine.measure_gain()` normalizes each SONG to `MUSIC_LUFS` (-16, matches the DJ) on load, cached per file (path+size+mtime). DJ voice (`kind="voice"`) is never touched.
-18. ✅ **Bruce feature (talk over intro)** - `song_intro.py::detect_intro()` + controller branch: song plays from the top, ducked under the DJ voice, and the music lifts to full at the **post** = `max(voice_len, intro)` → lands either on the DJ's last word or on the song's drop, never in dead air. LLM decides true/false per break; CODE owns the timing. `BRUCE_DUCK` (default 0.22) in `.env`.
+18. ✅ **Bruce feature (talk over intro)** - `song_intro.py::detect_intro()` (stricter v2: 0.65×p90 + 2s sustain) + a controller branch with two modes. **BRUCE** (rare): short script over a real intro → the song enters at `entry = voice_len - intro` so its BODY lands on the DJ's last word, only the intro rides (ducked) under the voice, then music lifts to full. **NORMAL**: DJ talks first, song starts from the top. CODE gate: `voice_len ≤ 18s`, `intro ≥ 10s`, `entry ≤ 4s` — else it falls back to normal. Never talks over vocals (body only arrives after the voice). Knobs: `BRUCE_DUCK`, `BRUCE_MAX_VOICE_S`, `BRUCE_MIN_INTRO_S`, `BRUCE_MAX_GAP_S`.
+19. ✅ **Bruce unreliable (v1)** - DJ talked over clear vocals / song entered too early. Root cause: (a) `post = max(voice_len, intro)` meant the song played from t=0 under a ~30s script, so its vocals sat under the voice for ~25s; (b) the v1 intro detector used 0.5×p90 + 0.25s dwell and caught the FIRST energy blip, not the real body (e.g. 1985 → 0.3s instead of 20.8s). Fix: strict detector + short-script/RARE gate + `entry` alignment so the body lands on the last word.
 
 ---
 
@@ -423,11 +456,15 @@ mutagen==1.48.0                 # MP3 metadata
 - Much better than generic "ara" voice
 - GTA radio DJs designed for engaging personality
 
-### Why "talk over the intro" (the Bruce feature)?
+### Why "hit the post" (the Bruce feature)?
 - A real DJ's signature move: ride the intro, land their last word on the song's first beat ("hitting the post").
 - **The LLM decides WHETHER** (it reads the moment — energetic/celebratory = yes, heavy/quiet = no). **The CODE owns the timing** — it knows the voice length and the song's intro length, so alignment is exact, not guessed.
-- The song plays from the TOP, ducked, under the voice — no dead air. Music lifts at `max(voice_len, intro)`, so it lands on the DJ's last word OR on the song's drop, whichever comes later.
-- Never every break: the prompt tells the DJ to mix it up, so it stays a surprise, not a formula.
+- **Three modes, chosen by code** because one size can't fit all breaks:
+  - **RIDE** — only when a short script fits over a real intro (small gap). The song enters at `entry = voice_len - intro`, so its body lands on the last word and only the intro rides under the voice. **Never talks over vocals.**
+  - **TALK-UP** — the common case (long script, short intro). The music comes up from the top in the last ~2.5s and swells to full on the DJ's final word. This is how a DJ "hits the post" with a long script.
+  - **NORMAL** — no post; the DJ talks first, then the song starts clean.
+- **Reliability rule (learned the hard way):** a normal 20-60s script can NEVER *ride* a ~5s intro — the song's vocals would sit under the voice the whole time. So a long script never rides; it uses talk-up instead.
+- The intro detector must be strict (0.65×p90 + 2s sustain) — a loose one catches the first drum hit and reports a 20s intro as 0.3s, which throws the ride off.
 
 ---
 
@@ -687,6 +724,9 @@ The two-LLM For You Zone is the proof-of-concept for that multi-agent pattern.
 1. **Bollywood pronunciation** - 70-75% quality (phonetic helps but not native)
 2. **No skip controls** - Must wait for song to finish (can add later)
 3. **Latin playlist (ats_removed_non_english)** - 59 songs, all missing metadata (Unknown Artist) + wrong voice (Naksh for Spanish songs). Not in use yet.
+4. **Bluetooth speaker mid-song disconnect** - no auto-reconnect; needs a manual restart.
+5. **Decisions log overwritten each restart** - `decisions_log` is in-memory; `session_history.json` is overwritten so only 1-2 scripts persist.
+6. **Bruce "hit the post" needs restart to take effect** - the running radio uses the old code until restarted.
 
 ---
 
