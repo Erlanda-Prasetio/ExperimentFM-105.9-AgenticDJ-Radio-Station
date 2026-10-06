@@ -20,17 +20,32 @@ load_dotenv()
 
 
 def parse_args(argv):
-    """Parse --record and DJ-filter flags.
+    """Parse --record, --hours N, and DJ-filter flags.
 
     Supports the user's style: -cara -junior  (single dash + DJ name)
     and the explicit:          --djs cara,junior
     """
     record = "--record" in argv
+    hours = 0.0
     dj_filter = []
 
     i = 0
     while i < len(argv):
         a = argv[i]
+        if a == "--hours" and i + 1 < len(argv):
+            try:
+                hours = float(argv[i + 1])
+            except ValueError:
+                print(f"[Args] --hours needs a number, got {argv[i+1]!r}")
+            i += 2
+            continue
+        if a.startswith("--hours="):
+            try:
+                hours = float(a.split("=", 1)[1])
+            except ValueError:
+                print(f"[Args] --hours needs a number, got {a!r}")
+            i += 1
+            continue
         if a == "--djs" and i + 1 < len(argv):
             dj_filter += [x.strip() for x in argv[i + 1].split(",") if x.strip()]
             i += 2
@@ -46,17 +61,18 @@ def parse_args(argv):
             continue
         i += 1
 
-    return record, dj_filter
+    return record, dj_filter, hours
 
 
-def _record_path(music_dir: str, dj_filter) -> str:
-    """Build recordings/<date>_<time>_<slug>_<djs>.mp3"""
+def _record_path(music_dir: str, dj_filter, hours: float = 0.0) -> str:
+    """Build recordings/<date>_<time>_<slug>_<djs>_<hours>h.mp3"""
     import re
     slug = os.path.basename(os.path.normpath(music_dir))
     slug = re.sub(r'[^a-zA-Z0-9]+', '-', slug).strip('-').lower()
     djs = "-".join(d.lower() for d in dj_filter) if dj_filter else "all"
     stamp = datetime.now().strftime("%Y-%m-%d_%H%M")
-    return os.path.join("recordings", f"{stamp}_{slug}_{djs}.mp3")
+    dur = f"_{hours:g}h" if hours > 0 else ""
+    return os.path.join("recordings", f"{stamp}_{slug}_{djs}{dur}.mp3")
 
 
 def select_playlist_folder():
@@ -118,7 +134,7 @@ def select_playlist_folder():
 
 def main():
     argv = sys.argv[1:]
-    record, dj_filter = parse_args(argv)
+    record, dj_filter, hours = parse_args(argv)
 
     # Interactive folder + voice selection
     music_dir, dj_voice = select_playlist_folder()
@@ -138,11 +154,12 @@ def main():
     print(f"Playlist:    {music_dir}")
     print(f"DJ Voice:    {dj_voice.upper()}")
     print(f"LLM:         {llm_endpoint}")
-    print(f"Mode:        Full Autonomy")
+    print(f"Mode:        {'RECORDING (fresh from 0)' if record else 'Full Autonomy'}")
     if dj_filter:
         print(f"DJ filter:   {', '.join(dj_filter)}")
     if record:
-        print(f"RECORDING:   ON -> {_record_path(music_dir, dj_filter)}")
+        print(f"Duration:    {hours:g}h" if hours > 0 else "Duration:    until Ctrl+C")
+        print(f"RECORDING:   ON -> {_record_path(music_dir, dj_filter, hours)}")
     print("="*60 + "\n")
     
     recorder = None
@@ -158,13 +175,15 @@ def main():
             llm_model=llm_model,
             tts_model="F5-TTS",
             dj_voice=dj_voice,
-            dj_filter=dj_filter or None
+            dj_filter=dj_filter or None,
+            record_mode=record,
+            record_hours=hours,
         )
 
         # Attach recorder BEFORE going live so the first block is captured
         if record:
             from session_recorder import SessionRecorder
-            out_path = _record_path(music_dir, dj_filter)
+            out_path = _record_path(music_dir, dj_filter, hours)
             recorder = SessionRecorder(
                 output_path=out_path,
                 samplerate=radio.mixer.samplerate,
@@ -175,25 +194,22 @@ def main():
             recorder.start()
 
         radio.start_broadcast()
-        
+        print("\n[Radio] Broadcast ended.")
+
     except KeyboardInterrupt:
         print("\n\n[Radio] Shutting down gracefully...")
-        if recorder is not None:
-            try:
-                recorder.stop()
-            except Exception as e:
-                print(f"[Record] stop failed: {e}")
-        sys.exit(0)
     except Exception as e:
         print(f"\n[Radio] FATAL ERROR: {e}")
+        import traceback
+        traceback.print_exc()
+    finally:
+        # Always finalize the recording (normal end OR Ctrl+C)
         if recorder is not None:
             try:
                 recorder.stop()
-            except Exception:
-                pass
-        import traceback
-        traceback.print_exc()
-        sys.exit(1)
+                print(f"[Record] saved: {recorder.output_path}")
+            except Exception as e:
+                print(f"[Record] stop failed: {e}")
 
 
 if __name__ == "__main__":

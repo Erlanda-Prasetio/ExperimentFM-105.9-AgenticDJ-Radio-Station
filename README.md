@@ -169,24 +169,35 @@ Rata-rata lagu 3.7 menit, generate cuma ~25 detik. Buffer ~2 menit. Nol dead air
 Rekam siaran on-air lengkap (lagu + DJ turn + For You Zone + Bruce + ducking + limiter) jadi **satu file MP3** — siap dipindah ke HP, mobil, atau SD card.
 
 ```bash
-# Rekam dengan roster penuh (semua DJ rotasi)
+# Rekam dengan roster penuh (semua DJ rotasi), sampai Ctrl+C
 python agenticMain.py --record
 
-# Rekam, tapi cuma Cara + Junior yang rotasi (handoff tetap jalan)
-python agenticMain.py --record -cara -junior
+# Rekam 2 jam, Cara + Junior (shift otomatis = 2h / 2 DJ = 1 jam per DJ)
+python agenticMain.py --record --hours 2 -cara -junior
 
-# Rekam, single DJ: Cara doang (tanpa handoff; For You Zone tetap jalan)
-python agenticMain.py --record -cara
+# Rekam 1 jam, Cara + Junior (shift = 30 menit per DJ)
+python agenticMain.py --record --hours 1 -cara -junior
+
+# Rekam single DJ: Cara doang (tanpa handoff; For You Zone tetap jalan)
+python agenticMain.py --record --hours 2 -cara
 
 # Bentuk aman (kalau single-dash bikin ragu)
-python agenticMain.py --record --djs cara,junior
+python agenticMain.py --record --hours 2 --djs cara,junior
 ```
 
-- **1 DJ** → tanpa handoff, shift clock nggak berlaku, **FYZ tetap jalan**.
+- **Recording mode = FRESH RUN.** Tiap `--record` bikin **state file baru** (`radio_state_<slug>_REC_<timestamp>.json`), playlist mulai dari **0**, FYZ queue fresh. **State LIVE lo nggak pernah dibaca/ditulis.**
+- **`--hours N`** → auto-stop setelah N jam. **Ctrl+C** juga bisa kapan aja (file tetap difinalisasi).
+- **Shift otomatis** = `--hours ÷ jumlah DJ`:
+  | Recording | DJ | Shift/DJ |
+  |---|---|---|
+  | 1 jam | Cara + Junior | **30 menit** |
+  | 2 jam | Cara + Junior | **1 jam** |
+  | 3 jam | Cara + Junior + Jerry | **1 jam** |
+  | 2 jam | Cara (1 DJ) | no handoff (FYZ tetap) |
+- **1 DJ** → tanpa handoff, shift nggak berlaku, **FYZ tetap jalan**.
 - **2 DJ** → handoff normal (pasangan bebas: cara+jerry, junior+jerry, cara+junior).
 - **Tanpa flag DJ** → roster penuh (perilaku biasa, nggak berubah).
-- **Output:** `recordings/<tanggal>_<jam>_<playlist>_<djs>.mp3` — MP3 CBR **192k, 44.1kHz stereo, ID3v2.3** (paling kompatibel). Otomatis di-tag pas berhenti.
-- **Cara berhenti:** `Ctrl+C` — file difinalisasi + di-tag otomatis.
+- **Output:** `recordings/<tanggal>_<jam>_<playlist>_<djs>_<hours>h.mp3` — MP3 CBR **192k, 44.1kHz stereo, ID3v2.3** (paling kompatibel). Otomatis di-tag pas berhenti.
 - **Bitrate:** atur lewat `RECORD_BITRATE` di `.env` (default `192k`).
 - **Aman:** encoder jalan di thread terpisah, jadi rekam **nggak** bikin audio patah-patah. Kalau `ffmpeg` nggak ada, rekaman berhenti tapi radio tetap jalan.
 

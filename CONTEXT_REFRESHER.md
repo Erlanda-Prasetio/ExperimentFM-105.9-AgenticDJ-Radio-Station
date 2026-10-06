@@ -225,16 +225,13 @@ latency = 'high'                    # Prioritize stability over low-latency
 - [x] Tests: `test_bruce.py` (18/18 math + dispatch), `test_bruce_render.py` (9/9 real audio), `test_bruce_mixer.py` (8/8 real mixer callback), `test_talkup.py` (6/6 real mixer swell), `test_bruce_rarity.py` (4/4 mode coverage), `test_bruce_llm.py` (13/13 live LLM)
 
 ### 10. **Recording mode (`--record`) — capture the live mix to MP3**
-- [x] `python agenticMain.py --record` — records the **final on-air mix** (songs + DJ + For You Zone + Bruce + ducking + limiter) to ONE MP3, start to stop.
-- [x] **DJ filter**: `--record -cara -junior` (only those DJs rotate) or `-cara` (single DJ). Safe form: `--djs cara,junior`.
-  - **1 DJ** → no handoff, shift clock irrelevant; **FYZ still runs**.
-  - **2 DJs** → normal handoff rotation (any pair: cara+jerry, junior+jerry, cara+junior).
-  - No DJ flags → full roster (unchanged behaviour).
-- [x] Hook point: `RealtimeRadioMixer._audio_callback` calls `recorder.push(mixed)` — a **queue append only** (never blocks the real-time audio thread). A separate writer thread pipes raw f32le PCM into `ffmpeg` (libmp3lame), so encoding never touches the callback → no glitches.
-- [x] Output: `recordings/<date>_<time>_<playlist-slug>_<djs>.mp3` — **MP3 CBR 192k, 44100 Hz stereo, ID3v2.3** (max compatibility: phones, car head units, SD cards). Tagged with title/artist/album on stop.
-- [x] Crash-safe-ish: queue drops blocks (and reports) rather than blocking if the encoder falls behind; ffmpeg missing → recording stops, radio keeps playing.
-- [x] Config: `RECORD_BITRATE` (default `192k`). `recordings/` is gitignored.
-- [x] Tests: `test_record.py` (7/7 arg parsing + real MP3 render + tags), `test_djfilter.py` (6/6 roster filter + single-DJ shift semantics), `test_record_integ.py` (real mixer callback → 3.9s MP3, 0 dropped blocks, audible)
+- [x] `python agenticMain.py --record [--hours N] [-dj ...]` — records the **final on-air mix** (songs + DJ + For You Zone + Bruce + ducking + limiter) to ONE MP3.
+- [x] **FRESH RUN**: each `--record` uses an **isolated state file** (`radio_state_<slug>_REC_<ts>.json` + matching decision log), starts the playlist at **0**, and **never reads/writes the LIVE state**. So every recording is a different program (different song order + scripts).
+- [x] **`--hours N`** → auto-stops after N hours; **Ctrl+C** stops early (file always finalized).
+- [x] **Auto shift** = `--hours ÷ number of DJs` (2h/2 DJ = 1h each; 1h/2 DJ = 30 min each; 1 DJ = no shift, FYZ still on).
+- [x] **DJ filter**: `--record -cara -junior` or `--djs cara,junior`. 1 DJ = no handoff; 2 DJs = normal handoff; no flags = full roster.
+- [x] Hook: `_audio_callback` calls `recorder.push(mixed)` — queue append only (never blocks the RT thread); writer thread pipes f32le PCM into `ffmpeg`. Output MP3 CBR 192k / 44.1k / stereo / ID3v2.3 (max compatibility). `RECORD_BITRATE` env; `recordings/` gitignored.
+- [x] Tests: `test_record.py` (7/7 args + real MP3 + tags), `test_djfilter.py` (6/6 filter + single-DJ shift), `test_record_integ.py` (real callback → 3.9s MP3, 0 dropped blocks), `test_recmode.py` (7/7 args+hours, state isolation, shift math)
 
 ---
 

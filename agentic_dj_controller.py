@@ -47,7 +47,8 @@ class AgenticRadioController:
     
     def __init__(self, music_dir: str, station_name: str, llm_endpoint: str, 
                  llm_api_key: str, llm_model: str, tts_model: str = "F5-TTS", dj_voice: str = "naksh",
-                 dj_filter: Optional[List[str]] = None):
+                 dj_filter: Optional[List[str]] = None, record_mode: bool = False,
+                 record_hours: float = 0.0):
         self.station_name = station_name
         self.llm_endpoint = llm_endpoint
         self.llm_api_key = llm_api_key
@@ -55,6 +56,10 @@ class AgenticRadioController:
         self.dj_voice = dj_voice  # Voice preference based on playlist
         self.music_dir = music_dir
         self.dj_filter = dj_filter  # optional subset of DJ names to restrict the roster
+        # Recording mode: fresh run from 0, isolated state files (LIVE state untouched)
+        self.record_mode = bool(record_mode)
+        self.record_hours = float(record_hours or 0.0)
+        self.record_started_at = datetime.now()
         self.shift_hours = float(os.getenv("SHIFT_HOURS", "3"))  # rotating DJ shift length
         
         # Initialize components
@@ -95,12 +100,33 @@ class AgenticRadioController:
         self.fyz_queue: List[dict] = []    # listener messages pending in the ACTIVE session
         self.fyz_session_no: int = 0       # counter for logging
         
-        # State file (per-playlist, persists across sessions)
-        self.state_file = self._state_file_path(music_dir)
-        # Append-only decision log (JSONL). Unlike session_history_*.json (which is
-        # overwritten each run) this is appended, so every break survives restarts.
-        self.decisions_log_file = self._decisions_log_path(music_dir)
-        self.load_state()
+        # State file (per-playlist, persists across sessions).
+        # In RECORDING MODE we use an isolated, per-run state file and NEVER load
+        # the LIVE state -> every recording starts fresh from 0 and the LIVE
+        # radio_state_*.json is never read or written.
+        if self.record_mode:
+            self.state_file = self._record_state_file_path(music_dir)
+            self.decisions_log_file = self._record_decisions_log_path(music_dir)
+            self.play_history = []
+            self.played_this_cycle = set()
+            self.cycle_number = 1
+            print(f"[Record] Fresh run from 0 (isolated state: {self.state_file})")
+            print(f"[Record] LIVE state NOT touched")
+        else:
+            self.state_file = self._state_file_path(music_dir)
+            # Append-only decision log (JSONL). Unlike session_history_*.json (which is
+            # overwritten each run) this is appended, so every break survives restarts.
+            self.decisions_log_file = self._decisions_log_path(music_dir)
+            self.load_state()
+
+        # Apply record-mode shift length: total hours / number of DJs on rotation.
+        if self.record_mode and self.record_hours > 0 and len(self.roster) > 1:
+            self.shift_hours = self.record_hours / len(self.roster)
+            print(f"[Record] Shift = {self.record_hours}h / {len(self.roster)} DJs "
+                  f"= {self.shift_hours*60:.0f} min per DJ")
+        elif self.record_mode and len(self.roster) <= 1:
+            self.shift_hours = 0  # single DJ: no shift/handoff
+        
         
         # Pre-generation queue (prepare next transition while playing)
         self.next_decision: Optional[AgenticDecision] = None
@@ -183,6 +209,22 @@ class AgenticRadioController:
         name = os.path.basename(os.path.normpath(music_dir))
         slug = re.sub(r'[^a-zA-Z0-9]+', '_', name).strip('_').lower()
         return f"decisions_log_{slug}.jsonl"
+
+    def _record_state_file_path(self, music_dir: str) -> str:
+        """Isolated state file for a recording run (never collides with LIVE state)."""
+        import re
+        name = os.path.basename(os.path.normpath(music_dir))
+        slug = re.sub(r'[^a-zA-Z0-9]+', '_', name).strip('_').lower()
+        stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        return f"radio_state_{slug}_REC_{stamp}.json"
+
+    def _record_decisions_log_path(self, music_dir: str) -> str:
+        """Isolated decision log for a recording run."""
+        import re
+        name = os.path.basename(os.path.normpath(music_dir))
+        slug = re.sub(r'[^a-zA-Z0-9]+', '_', name).strip('_').lower()
+        stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        return f"decisions_log_{slug}_REC_{stamp}.jsonl"
 
     def _log_decision_line(self, entry: dict):
         """Append ONE decision as a JSON line (survives restarts). Never raises."""
@@ -341,16 +383,26 @@ class AgenticRadioController:
     def start_broadcast(self):
         """Start autonomous broadcast loop"""
         print("\n🔴 GOING LIVE - AI DJ in control\n")
-        
+        if self.record_mode and self.record_hours > 0:
+            print(f"[Record] Auto-stop after {self.record_hours}h (Ctrl+C stops early)\n")
+
         try:
             while True:
+                # Recording mode: auto-stop once the requested duration elapsed.
+                if self.record_mode and self.record_hours > 0:
+                    elapsed_h = (datetime.now() - self.record_started_at).total_seconds() / 3600
+                    if elapsed_h >= self.record_hours:
+                        print(f"\n[Record] ⏹ Reached {self.record_hours}h - stopping recording.")
+                        break
                 self._autonomous_cycle()
         except KeyboardInterrupt:
             print("\n[Radio] Stopping broadcast...")
-            
-            # Save session history on exit
-            self.save_session_log()
-            
+        finally:
+            # Save session history on exit (isolated file in record mode)
+            try:
+                self.save_session_log()
+            except Exception as e:
+                print(f"[Radio] session log save failed: {e}")
             self.mixer.stop()
     
     def _autonomous_cycle(self):
