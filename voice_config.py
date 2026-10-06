@@ -115,7 +115,8 @@ NAMED_VOICES = {
         "gender": "male",
         "persona": "",
         "cfg": 2.4,
-        "speed": 1.05
+        "speed": 1.05,
+        "nfe_step": 192
     },
 }
 

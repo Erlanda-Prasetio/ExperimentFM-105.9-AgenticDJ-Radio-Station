@@ -61,11 +61,15 @@ class TTSEngine:
         # Get appropriate voice (resolve BEFORE cache key so per-voice speed/cfg land in it)
         named = get_named_voice(voice_name) if voice_name else None
         eq_spec = None
+        nfe_step = None
+        sway_coef = None
         if named:
             # Explicit named voice (rotating DJ / handoff)
             ref_voice = named['file']
             ref_text = named['transcript']
             eq_spec = named.get('eq')          # optional per-voice corrective EQ
+            nfe_step = named.get('nfe_step')   # optional per-voice diffusion steps
+            sway_coef = named.get('sway')      # optional per-voice sway sampling coef
             # Per-voice cfg_strength (if not explicitly overridden)
             if cfg_strength is None and named.get('cfg') is not None:
                 cfg_strength = named['cfg']
@@ -87,10 +91,18 @@ class TTSEngine:
                 speed = float(os.getenv("TTS_SPEED", "1.0"))
         speed = float(speed)
 
+        # Resolve nfe_step: per-voice > default 64
+        if nfe_step is None:
+            nfe_step = 64
+        # Resolve sway: per-voice; if nfe_step is high, sway MUST be off (float16
+        # timestep collision in F5-TTS -> "t must be strictly increasing").
+        if sway_coef is None:
+            sway_coef = -1.0 if nfe_step <= 64 else None
+
         if output_path is None:
             # Auto-generate filename with language in hash
             import hashlib
-            cache_key = f"{text}_{language}_{gender or 'default'}_{voice_name or 'auto'}_{speed}_{cfg_strength}_{seed}"
+            cache_key = f"{text}_{language}_{gender or 'default'}_{voice_name or 'auto'}_{speed}_{cfg_strength}_{seed}_{nfe_step}_{sway_coef}"
             text_hash = hashlib.md5(cache_key.encode()).hexdigest()[:8]
             output_path = str(self.cache_dir / f"dj_{text_hash}.wav")
         
@@ -102,13 +114,13 @@ class TTSEngine:
         print(f"[TTS] Generating: '{text[:50]}...' ({language}{', voice=' + voice_name if voice_name else ''})")
         
         if self.model == "F5-TTS":
-            self._generate_f5tts(text, output_path, ref_voice, ref_text, language, skip_processing, speed, cfg_strength, seed, eq_spec)
+            self._generate_f5tts(text, output_path, ref_voice, ref_text, language, skip_processing, speed, cfg_strength, seed, eq_spec, nfe_step, sway_coef)
         else:
             raise ValueError(f"Unknown TTS model: {self.model}")
         
         return output_path
     
-    def _generate_f5tts(self, text: str, output_path: str, ref_voice: str, ref_text: str, language: str = "english", skip_processing: bool = False, speed: float = 1.0, cfg_strength: float = None, seed: int = None, eq_spec: dict = None):
+    def _generate_f5tts(self, text: str, output_path: str, ref_voice: str, ref_text: str, language: str = "english", skip_processing: bool = False, speed: float = 1.0, cfg_strength: float = None, seed: int = None, eq_spec: dict = None, nfe_step: int = 64, sway_coef: float = -1.0):
         """Generate using F5-TTS API"""
         import sys
         sys.path.insert(0, "C:/sourceCode/TTS/.venv/Lib/site-packages")
@@ -137,9 +149,9 @@ class TTSEngine:
                 gen_text=text,
                 ref_text=ref_text,
                 ref_file=ref_voice,
-                nfe_step=64,          # Quality/speed balance
+                nfe_step=nfe_step,      # Quality/speed balance (per-voice configurable)
                 cfg_strength=cfg_strength if cfg_strength is not None else (2.2 if 'CARA' in ref_voice or 'ara' in ref_voice else 1.6),  # Higher for female
-                sway_sampling_coef=-1.0,
+                sway_sampling_coef=sway_coef,  # None required for nfe_step > 64
                 speed=1.0,
                 seed=seed
             )
