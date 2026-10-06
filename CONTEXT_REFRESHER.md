@@ -28,9 +28,11 @@ Build a fully autonomous AI radio station with:
 - Also fixed the v1 reliability bug: strict intro detector (was catching the first drum hit) + the 3-mode dispatch.
 - Tests (all green): `test_bruce.py` 18/18, `test_bruce_render.py` 9/9, `test_bruce_mixer.py` 8/8, `test_talkup.py` 6/6, `test_bruce_rarity.py` 4/4, `test_bruce_llm.py` 13/13.
 
-**Not yet verified live** — the running radio still uses the old code. **Next step: restart the radio (`python agenticMain.py`) and listen** to a few transitions, then tune `TALKUP_LEAD_S` / `TALKUP_DUCK` / `BRUCE_DUCK` to taste.
+**Verified live (Oct 6, morning):** radio restarted, first break came out with `talk_over_intro: true` on Junior/"Beat It" — resolved to **TALK-UP** (Beat It has a 0s intro, so a ~34s script can't ride). User: "keren juga transisi nya". Still open: listen to more transitions and tune `TALKUP_LEAD_S` / `TALKUP_DUCK` / `BRUCE_DUCK` to taste.
 
 **Open thread:** user mentioned sourcing ad audio ("tinggal cari iklan nih buat data") — assistant recommended GTA V male DJ / studio VO over real ads (real ads are the trap: licensing + inconsistent loudness). Deferred.
+
+**Decision logging (done):** every break is appended to `decisions_log_<slug>.jsonl` (one JSON line per break, never overwritten → survives restarts) with the resolved Bruce `mode` (RIDE/TALK-UP/NORMAL) + real `voice_len`/`intro`/`entry`. Audit anytime with `python log_stats.py` (or `python log_stats.py --tail 20`). `session_history_*.json` still resets each run, but the JSONL is the durable record. Test: `test_decision_log.py` 10/10.
 
 ---
 
@@ -725,7 +727,7 @@ The two-LLM For You Zone is the proof-of-concept for that multi-agent pattern.
 2. **No skip controls** - Must wait for song to finish (can add later)
 3. **Latin playlist (ats_removed_non_english)** - 59 songs, all missing metadata (Unknown Artist) + wrong voice (Naksh for Spanish songs). Not in use yet.
 4. **Bluetooth speaker mid-song disconnect** - no auto-reconnect; needs a manual restart.
-5. **Decisions log overwritten each restart** - `decisions_log` is in-memory; `session_history.json` is overwritten so only 1-2 scripts persist.
+5. **`session_history_*.json` overwritten each restart** - `decisions_log` is in-memory and that file is rewritten per run, so only the current run's decisions persist there. **Mitigated:** every break is now also appended to `decisions_log_<slug>.jsonl` (one JSON line per break, never overwritten) — audit with `python log_stats.py`. `session_history` still resets, but the JSONL is the durable record.
 6. **Bruce "hit the post" needs restart to take effect** - the running radio uses the old code until restarted.
 
 ---

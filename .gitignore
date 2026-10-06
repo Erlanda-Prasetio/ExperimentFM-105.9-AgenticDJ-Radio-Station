@@ -21,6 +21,7 @@ __pycache__/
 tts_cache/
 radio_state_*.json
 session_history*.json
+decisions_log_*.jsonl
 
 # ============================================================
 #  Test output media (generated during experiments)

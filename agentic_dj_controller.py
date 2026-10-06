@@ -95,6 +95,9 @@ class AgenticRadioController:
         
         # State file (per-playlist, persists across sessions)
         self.state_file = self._state_file_path(music_dir)
+        # Append-only decision log (JSONL). Unlike session_history_*.json (which is
+        # overwritten each run) this is appended, so every break survives restarts.
+        self.decisions_log_file = self._decisions_log_path(music_dir)
         self.load_state()
         
         # Pre-generation queue (prepare next transition while playing)
@@ -159,6 +162,21 @@ class AgenticRadioController:
         name = os.path.basename(os.path.normpath(music_dir))
         slug = re.sub(r'[^a-zA-Z0-9]+', '_', name).strip('_').lower()
         return f"radio_state_{slug}.json"
+
+    def _decisions_log_path(self, music_dir: str) -> str:
+        """Append-only per-playlist decision log (JSONL)."""
+        import re
+        name = os.path.basename(os.path.normpath(music_dir))
+        slug = re.sub(r'[^a-zA-Z0-9]+', '_', name).strip('_').lower()
+        return f"decisions_log_{slug}.jsonl"
+
+    def _log_decision_line(self, entry: dict):
+        """Append ONE decision as a JSON line (survives restarts). Never raises."""
+        try:
+            with open(self.decisions_log_file, 'a', encoding='utf-8') as f:
+                f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+        except Exception as e:
+            print(f"[Log] Decision line failed: {e}")
     
     def load_state(self):
         """Load persistent state from previous session (per-playlist, no decay)"""
@@ -484,6 +502,25 @@ class AgenticRadioController:
             # TALK-UP covers every other "hit the post" - it needs a script long enough
             # to have a "last few seconds".
             talkup = want_post and not ride and voice_len >= lead + 1.5
+            mode = "RIDE" if ride else ("TALK-UP" if talkup else "NORMAL")
+
+            # Append-only audit line (survives restarts). One per break, with the
+            # resolved mode + the real lengths that produced it.
+            self._log_decision_line({
+                'timestamp': datetime.now().isoformat(),
+                'dj': getattr(decision, 'dj_name', None) or '',
+                'handoff': bool(getattr(decision, 'is_handoff', False)),
+                'for_you_zone': bool(getattr(decision, 'is_for_you_zone', False)),
+                'intent': decision.intent,
+                'next_song': f"{next_song.title} - {next_song.artist}",
+                'want_post': want_post,
+                'mode': mode,
+                'voice_len': round(voice_len, 2),
+                'intro': round(intro, 2),
+                'entry': round(entry, 2),
+                'script': decision.script,
+                'reasoning': decision.reasoning,
+            })
 
             if ride:
                 # --- RIDE (Bruce): ride the intro, hit the post on the last word ---
