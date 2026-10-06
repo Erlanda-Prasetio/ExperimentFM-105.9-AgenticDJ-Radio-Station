@@ -160,6 +160,37 @@ Rata-rata lagu 3.7 menit, generate cuma ~25 detik. Buffer ~2 menit. Nol dead air
 - ✅ **Rantai radio profesional** — EQ, kompresi, reverb, limiter, normalisasi LUFS
 - ✅ **Ducking otomatis** — musik turun saat DJ ngomong
 - ✅ **"Bruce feature"** — DJ ngomong pas lagu mau masuk, kata terakhirnya mendarat tepat di post (beat/drop lagu). 3 mode: ride intro (script pendek), talk-up (script panjang, musik nyala di 2-3 detik terakhir), normal.
+- ✅ **Recording mode** — rekam siaran langsung (lagu + DJ + For You Zone, lengkap) jadi **satu MP3** yang kompatibel ke HP/mobil/SD card.
+
+---
+
+## Recording Mode
+
+Rekam siaran on-air lengkap (lagu + DJ turn + For You Zone + Bruce + ducking + limiter) jadi **satu file MP3** — siap dipindah ke HP, mobil, atau SD card.
+
+```bash
+# Rekam dengan roster penuh (semua DJ rotasi)
+python agenticMain.py --record
+
+# Rekam, tapi cuma Cara + Junior yang rotasi (handoff tetap jalan)
+python agenticMain.py --record -cara -junior
+
+# Rekam, single DJ: Cara doang (tanpa handoff; For You Zone tetap jalan)
+python agenticMain.py --record -cara
+
+# Bentuk aman (kalau single-dash bikin ragu)
+python agenticMain.py --record --djs cara,junior
+```
+
+- **1 DJ** → tanpa handoff, shift clock nggak berlaku, **FYZ tetap jalan**.
+- **2 DJ** → handoff normal (pasangan bebas: cara+jerry, junior+jerry, cara+junior).
+- **Tanpa flag DJ** → roster penuh (perilaku biasa, nggak berubah).
+- **Output:** `recordings/<tanggal>_<jam>_<playlist>_<djs>.mp3` — MP3 CBR **192k, 44.1kHz stereo, ID3v2.3** (paling kompatibel). Otomatis di-tag pas berhenti.
+- **Cara berhenti:** `Ctrl+C` — file difinalisasi + di-tag otomatis.
+- **Bitrate:** atur lewat `RECORD_BITRATE` di `.env` (default `192k`).
+- **Aman:** encoder jalan di thread terpisah, jadi rekam **nggak** bikin audio patah-patah. Kalau `ffmpeg` nggak ada, rekaman berhenti tapi radio tetap jalan.
+
+> Rekam **real-time**: 7 jam siaran = 7 jam merekam (radio tetap dengerin bareng). File `recordings/` nggak di-commit (gitignored).
 
 ---
 
@@ -167,8 +198,9 @@ Rata-rata lagu 3.7 menit, generate cuma ~25 detik. Buffer ~2 menit. Nol dead air
 
 ```
 C:/sourceCode/RadioExperiment/
-├── agenticMain.py              # ENTRY POINT — pilih playlist, start radio
+├── agenticMain.py              # ENTRY POINT — pilih playlist, start radio (+ --record)
 ├── agentic_dj_controller.py    # Jantung: DJ LLM, rotasi, handoff, For You Zone, pre-gen
+├── session_recorder.py         # Rekam mix on-air ke satu MP3 (--record)
 ├── listener_llm.py             # Otak LISTENER terpisah + time profile + session generator
 ├── listener_seeds.json         # Pool fakta For You Zone (kota/nama/occasion/question/request)
 ├── tts_engine.py               # F5-TTS + radio processing + cache

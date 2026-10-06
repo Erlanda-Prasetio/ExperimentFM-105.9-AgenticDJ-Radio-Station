@@ -1,13 +1,63 @@
 """
 Agentic Radio - Entry Point
 Select playlist folder and voice, then start autonomous AI DJ
+
+Recording mode (captures the live on-air mix to one MP3):
+    python agenticMain.py --record                  # normal roster, record
+    python agenticMain.py --record -cara -junior    # only Cara + Junior rotate
+    python agenticMain.py --record -cara            # single DJ (no handoff, FYZ still on)
+
+DJ flags: -jerry -cara -junior  (single dash + name, any order)
+Equivalent safe form: --djs cara,junior
 """
 import os
 import sys
+from datetime import datetime
 from dotenv import load_dotenv
 
 # Load environment
 load_dotenv()
+
+
+def parse_args(argv):
+    """Parse --record and DJ-filter flags.
+
+    Supports the user's style: -cara -junior  (single dash + DJ name)
+    and the explicit:          --djs cara,junior
+    """
+    record = "--record" in argv
+    dj_filter = []
+
+    i = 0
+    while i < len(argv):
+        a = argv[i]
+        if a == "--djs" and i + 1 < len(argv):
+            dj_filter += [x.strip() for x in argv[i + 1].split(",") if x.strip()]
+            i += 2
+            continue
+        if a.startswith("--djs="):
+            dj_filter += [x.strip() for x in a.split("=", 1)[1].split(",") if x.strip()]
+            i += 1
+            continue
+        # single-dash + name  (e.g. -cara, -junior). Skip known single flags.
+        if a.startswith("-") and not a.startswith("--") and a not in ("-h",):
+            dj_filter.append(a[1:])
+            i += 1
+            continue
+        i += 1
+
+    return record, dj_filter
+
+
+def _record_path(music_dir: str, dj_filter) -> str:
+    """Build recordings/<date>_<time>_<slug>_<djs>.mp3"""
+    import re
+    slug = os.path.basename(os.path.normpath(music_dir))
+    slug = re.sub(r'[^a-zA-Z0-9]+', '-', slug).strip('-').lower()
+    djs = "-".join(d.lower() for d in dj_filter) if dj_filter else "all"
+    stamp = datetime.now().strftime("%Y-%m-%d_%H%M")
+    return os.path.join("recordings", f"{stamp}_{slug}_{djs}.mp3")
+
 
 def select_playlist_folder():
     """Interactive folder selector (Windows compatible)"""
@@ -67,6 +117,9 @@ def select_playlist_folder():
 
 
 def main():
+    argv = sys.argv[1:]
+    record, dj_filter = parse_args(argv)
+
     # Interactive folder + voice selection
     music_dir, dj_voice = select_playlist_folder()
     
@@ -86,8 +139,13 @@ def main():
     print(f"DJ Voice:    {dj_voice.upper()}")
     print(f"LLM:         {llm_endpoint}")
     print(f"Mode:        Full Autonomy")
+    if dj_filter:
+        print(f"DJ filter:   {', '.join(dj_filter)}")
+    if record:
+        print(f"RECORDING:   ON -> {_record_path(music_dir, dj_filter)}")
     print("="*60 + "\n")
     
+    recorder = None
     try:
         # Initialize and start
         from agentic_dj_controller import AgenticRadioController
@@ -99,16 +157,40 @@ def main():
             llm_api_key=llm_api_key,
             llm_model=llm_model,
             tts_model="F5-TTS",
-            dj_voice=dj_voice
+            dj_voice=dj_voice,
+            dj_filter=dj_filter or None
         )
-        
+
+        # Attach recorder BEFORE going live so the first block is captured
+        if record:
+            from session_recorder import SessionRecorder
+            out_path = _record_path(music_dir, dj_filter)
+            recorder = SessionRecorder(
+                output_path=out_path,
+                samplerate=radio.mixer.samplerate,
+                channels=radio.mixer.channels,
+                bitrate=os.getenv("RECORD_BITRATE", "192k"),
+            )
+            radio.mixer.attach_recorder(recorder)
+            recorder.start()
+
         radio.start_broadcast()
         
     except KeyboardInterrupt:
         print("\n\n[Radio] Shutting down gracefully...")
+        if recorder is not None:
+            try:
+                recorder.stop()
+            except Exception as e:
+                print(f"[Record] stop failed: {e}")
         sys.exit(0)
     except Exception as e:
         print(f"\n[Radio] FATAL ERROR: {e}")
+        if recorder is not None:
+            try:
+                recorder.stop()
+            except Exception:
+                pass
         import traceback
         traceback.print_exc()
         sys.exit(1)

@@ -166,8 +166,18 @@ class RealtimeRadioMixer:
         # Control
         self.running = False
         self.stream: Optional[sd.OutputStream] = None
-        
+
+        # Optional session recorder (captures the final on-air mix to MP3).
+        # Set via attach_recorder(); push() is a cheap queue append, safe for
+        # the real-time callback.
+        self.recorder = None
+
         print(f"[Mixer] Initialized: {samplerate}Hz, {channels}ch, blocksize={blocksize}")
+
+    def attach_recorder(self, recorder):
+        """Attach a SessionRecorder to capture the final on-air mix."""
+        self.recorder = recorder
+        print("[Mixer] Recorder attached")
     
     def load_audio(self, filepath: str, name: str, kind: str = "music") -> AudioTrack:
         """Load audio file and convert to mixer format.
@@ -279,7 +289,11 @@ class RealtimeRadioMixer:
         
         # Clip to prevent distortion
         mixed = np.clip(mixed, -1.0, 1.0)
-        
+
+        # Capture the final on-air mix (queue append only; never blocks here)
+        if self.recorder is not None:
+            self.recorder.push(mixed)
+
         # Write to output
         outdata[:] = mixed
     

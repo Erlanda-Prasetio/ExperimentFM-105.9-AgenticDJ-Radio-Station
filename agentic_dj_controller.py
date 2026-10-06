@@ -46,13 +46,15 @@ class AgenticRadioController:
     """
     
     def __init__(self, music_dir: str, station_name: str, llm_endpoint: str, 
-                 llm_api_key: str, llm_model: str, tts_model: str = "F5-TTS", dj_voice: str = "naksh"):
+                 llm_api_key: str, llm_model: str, tts_model: str = "F5-TTS", dj_voice: str = "naksh",
+                 dj_filter: Optional[List[str]] = None):
         self.station_name = station_name
         self.llm_endpoint = llm_endpoint
         self.llm_api_key = llm_api_key
         self.llm_model = llm_model
         self.dj_voice = dj_voice  # Voice preference based on playlist
         self.music_dir = music_dir
+        self.dj_filter = dj_filter  # optional subset of DJ names to restrict the roster
         self.shift_hours = float(os.getenv("SHIFT_HOURS", "3"))  # rotating DJ shift length
         
         # Initialize components
@@ -134,7 +136,8 @@ class AgenticRadioController:
     
     def _load_roster(self) -> List[Dict]:
         """Load rotating DJ roster for this playlist.
-        A playlist with no roster entry = single-DJ mode (no fallback to other playlists)."""
+        A playlist with no roster entry = single-DJ mode (no fallback to other playlists).
+        An optional dj_filter (subset of DJ names) restricts who is on rotation."""
         path = self._roster_file_path(self.music_dir)
         if not os.path.exists(path):
             return []
@@ -146,11 +149,22 @@ class AgenticRadioController:
             slug = re.sub(r'[^a-zA-Z0-9]+', '_', slug).strip('_').lower()
             # A per-playlist file may be a bare list; the shared file is a dict keyed by slug
             if isinstance(data, list):
-                return data
-            roster = data.get(slug)
-            if not roster:
-                print(f"[Roster] No entry for '{slug}' - single DJ mode")
-                return []
+                roster = data
+            else:
+                roster = data.get(slug)
+                if not roster:
+                    print(f"[Roster] No entry for '{slug}' - single DJ mode")
+                    return []
+            # Apply optional DJ filter (case-insensitive match on name)
+            if self.dj_filter:
+                want = [d.strip().lower() for d in self.dj_filter]
+                filtered = [d for d in roster if d.get('name', '').lower() in want]
+                if filtered:
+                    names = ", ".join(d['name'] for d in filtered)
+                    print(f"[Roster] DJ filter {self.dj_filter} -> {names}")
+                    roster = filtered
+                else:
+                    print(f"[Roster] ⚠️ filter {self.dj_filter} matched no DJ - using full roster")
             return roster
         except Exception as e:
             print(f"[Roster] Failed to load ({e}) - single DJ mode")

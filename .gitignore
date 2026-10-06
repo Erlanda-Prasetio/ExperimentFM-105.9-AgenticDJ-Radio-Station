@@ -23,6 +23,9 @@ radio_state_*.json
 session_history*.json
 decisions_log_*.jsonl
 
+# Session recordings (large MP3s; keep local, never commit)
+recordings/
+
 # ============================================================
 #  Test output media (generated during experiments)
 # ============================================================
