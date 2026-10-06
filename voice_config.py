@@ -111,11 +111,11 @@ NAMED_VOICES = {
     "jerry": {
         "name": "Jerry",
         "file": str(VOICE_DIR / "voice_ref_jerry.wav"),
-        "transcript": "Hey, welcome to Experiment FM 105.9. I'm your AI host for tonight.",
+        "transcript": "Hey, welcome to Experiment FM 105.9. I'm your AI host for tonight, and we've got an incredible mix of music from around the world.",
         "gender": "male",
         "persona": "",
         "cfg": 2.4,
-        "speed": 1.1
+        "speed": 1.05
     },
 }
 

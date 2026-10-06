@@ -1,17 +1,17 @@
 {
   "voice_name": "jerry",
   "file": "voice_ref_jerry.wav",
-  "source": "ElevenLabs_2026-10-06T08_48_17_Jerry B. - Classic Radio DJ & Energetic_pvc_sp112_s40_sb75_v4 (jerry).mp3",
-  "segment": "0.00s - 5.32s (double sentence: 'Hey, welcome to Experiment FM 105.9. I'm your AI host for tonight.')",
-  "duration_s": 5.32,
+  "source": "ElevenLabs_2026-10-06T14_36_29_Jerry B. (jerry v3) - regenerated with flowing text + lower style boost",
+  "segment": "0.00s - 8.83s (full v3 read)",
+  "duration_s": 8.83,
   "sample_rate": 44100,
   "channels": 1,
   "language": "english",
   "gender": "male",
-  "style": "classic radio DJ, energetic, ElevenLabs Jerry B.",
-  "transcript": "Hey, welcome to Experiment FM 105.9. I'm your AI host for tonight.",
+  "style": "classic radio DJ, now flowing (v3)",
+  "transcript": "Hey, welcome to Experiment FM 105.9. I'm your AI host for tonight, and we've got an incredible mix of music from around the world.",
   "transcribed_by": "faster-whisper small (en)",
-  "notes": "User picked jerry over charlie/ethan. Reference cut to 5.32s (double sentence) to avoid the >10s F5-TTS reference-text leak. speed 1.1 chosen by user (1.0 felt slow); pitch verified LOCKED via ffmpeg atempo. Decay -130 dB/s (very dry, no echo). crest 6.93, low/voice 1.019 (cleanest of the batch).",
+  "notes": "v3 replaced v2. v2 (11.89s) had a staccato 'DJ hype' read (7 pauses>=150ms) that F5-TTS imitated, producing mid-sentence pauses in output. v3 regenerated with a flowing reference text + lower style boost -> only 2 pauses. Verified CLEAN (no leak) at 8.83s ref. speed 1.05 chosen by user. Old v2 ref kept as voice_ref_jerry_v2_old.wav.",
   "cfg_strength_suggestion": 2.4,
-  "speed_suggestion": 1.1
+  "speed_suggestion": 1.05
 }
