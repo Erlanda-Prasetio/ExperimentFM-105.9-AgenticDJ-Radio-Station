@@ -32,6 +32,13 @@ temp_*.wav
 *_raw.wav
 
 # ============================================================
+#  Scratch reference cuts (intermediate, not canonical voices)
+# ============================================================
+voice_references/cand_*.wav
+voice_references/candidates/
+voice_references/candidates_new/
+
+# ============================================================
 #  OS / editor
 # ============================================================
 Thumbs.db

@@ -1,0 +1,36 @@
+{
+  "voice_name": "ethan",
+  "file": "voice_ref_ethan.wav",
+  "source": "2026-10-06 14-54-27.mp4 (candidate C cut)",
+  "segment": "15.38s - 21.48s ('It's like if Radiohead had a baby with a synthesizer...')",
+  "duration_s": 6.1,
+  "sample_rate": 44100,
+  "channels": 1,
+  "language": "english",
+  "gender": "male",
+  "style": "casual, conversational, expressive radio DJ break",
+  "transcript": "It's like if Radiohead had a baby with a synthesizer then that baby was raised by wolves who only listened to 80s New Wave. Just, just listen.",
+  "transcribed_by": "faster-whisper small (en)",
+  "notes": "User picked candidate C after A/B of 5 cuts from the mp4. cfg 2.4 chosen. User reports treble is 'piercing' -> per-voice de-pierce EQ 'strong' applied (peaks -5dB@3.5k, -4dB@6.5k, shelf -4.5dB@9k) AFTER the broadcast chain. Verified: C and E both clean (0 recurring ad-libs) at 2.2 and 2.4.",
+  "cfg_strength_suggestion": 2.4,
+  "eq": {
+    "peaks": [
+      [
+        3500,
+        -5.0,
+        1.0
+      ],
+      [
+        6500,
+        -4.0,
+        1.2
+      ]
+    ],
+    "shelves": [
+      [
+        9000,
+        -4.5
+      ]
+    ]
+  }
+}

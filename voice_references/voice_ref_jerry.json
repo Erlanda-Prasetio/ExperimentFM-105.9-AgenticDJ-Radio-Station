@@ -1,0 +1,17 @@
+{
+  "voice_name": "jerry",
+  "file": "voice_ref_jerry.wav",
+  "source": "ElevenLabs_2026-10-06T08_48_17_Jerry B. - Classic Radio DJ & Energetic_pvc_sp112_s40_sb75_v4 (jerry).mp3",
+  "segment": "0.00s - 5.32s (double sentence: 'Hey, welcome to Experiment FM 105.9. I'm your AI host for tonight.')",
+  "duration_s": 5.32,
+  "sample_rate": 44100,
+  "channels": 1,
+  "language": "english",
+  "gender": "male",
+  "style": "classic radio DJ, energetic, ElevenLabs Jerry B.",
+  "transcript": "Hey, welcome to Experiment FM 105.9. I'm your AI host for tonight.",
+  "transcribed_by": "faster-whisper small (en)",
+  "notes": "User picked jerry over charlie/ethan. Reference cut to 5.32s (double sentence) to avoid the >10s F5-TTS reference-text leak. speed 1.1 chosen by user (1.0 felt slow); pitch verified LOCKED via ffmpeg atempo. Decay -130 dB/s (very dry, no echo). crest 6.93, low/voice 1.019 (cleanest of the batch).",
+  "cfg_strength_suggestion": 2.4,
+  "speed_suggestion": 1.1
+}

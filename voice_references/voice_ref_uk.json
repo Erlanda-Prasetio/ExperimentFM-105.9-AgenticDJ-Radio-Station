@@ -1,0 +1,16 @@
+{
+  "voice_name": "uk",
+  "file": "voice_ref_uk.wav",
+  "source": "Every UK Radio presenter on a Saturday night....mp3",
+  "segment": "0.00s - 11.48s (opening: 'Thanks a lot, Jamie. The time now is 7.01pm...')",
+  "duration_s": 11.48,
+  "sample_rate": 44100,
+  "channels": 2,
+  "language": "english",
+  "gender": "female",
+  "style": "warm UK radio presenter, expressive",
+  "transcript": "Thanks a lot, Jamie. The time now is 7.01pm and you are locked in to Freeze FM with me, Kali Trainor, where I will be bringing you the biggest and baddest tunes of the last seven days.",
+  "transcribed_by": "faster-whisper small (en), word timestamps",
+  "notes": "Selected by user A/B: reference A was the most expressive of A/B/C (B = flat intonation, C = mixed bag). Known: slight robotic artefact only audible on studio monitor headphones; NOT audible on normal speakers, which is the actual playback path. Reference has a faint music bed (crest ~13). cfg 2.4 chosen for T1; 2.0 for T3 (most expressive). Default 2.2.",
+  "cfg_strength_suggestion": 2.2
+}

@@ -52,17 +52,41 @@ class TTSEngine:
         Returns:
             Path to audio file
         """
-        # Resolve speed: explicit arg > TTS_SPEED env > 1.0 default
-        if speed is None:
-            speed = float(os.getenv("TTS_SPEED", "1.0"))
-        speed = float(speed)
-        
         # Resolve cfg_strength: explicit arg > env TTS_CFG_STRENGTH > auto (gender-based)
         if cfg_strength is None:
             env_cfg = os.getenv("TTS_CFG_STRENGTH")
             if env_cfg:
                 cfg_strength = float(env_cfg)
-        
+
+        # Get appropriate voice (resolve BEFORE cache key so per-voice speed/cfg land in it)
+        named = get_named_voice(voice_name) if voice_name else None
+        eq_spec = None
+        if named:
+            # Explicit named voice (rotating DJ / handoff)
+            ref_voice = named['file']
+            ref_text = named['transcript']
+            eq_spec = named.get('eq')          # optional per-voice corrective EQ
+            # Per-voice cfg_strength (if not explicitly overridden)
+            if cfg_strength is None and named.get('cfg') is not None:
+                cfg_strength = named['cfg']
+        elif language.lower() == "english" and gender is None:
+            # Use main DJ voice
+            ref_voice = self.default_voice
+            ref_text = self.default_text
+        else:
+            # Use language-specific voice
+            voice = get_voice(language, gender)
+            ref_voice = voice['file']
+            ref_text = voice['transcript']
+
+        # Resolve speed: explicit arg > per-voice 'speed' > TTS_SPEED env > 1.0 default
+        if speed is None:
+            if named and named.get('speed') is not None:
+                speed = float(named['speed'])
+            else:
+                speed = float(os.getenv("TTS_SPEED", "1.0"))
+        speed = float(speed)
+
         if output_path is None:
             # Auto-generate filename with language in hash
             import hashlib
@@ -77,33 +101,14 @@ class TTSEngine:
         
         print(f"[TTS] Generating: '{text[:50]}...' ({language}{', voice=' + voice_name if voice_name else ''})")
         
-        # Get appropriate voice
-        named = get_named_voice(voice_name) if voice_name else None
-        if named:
-            # Explicit named voice (rotating DJ / handoff)
-            ref_voice = named['file']
-            ref_text = named['transcript']
-            # Per-voice cfg_strength (if not explicitly overridden)
-            if cfg_strength is None and named.get('cfg') is not None:
-                cfg_strength = named['cfg']
-        elif language.lower() == "english" and gender is None:
-            # Use main DJ voice
-            ref_voice = self.default_voice
-            ref_text = self.default_text
-        else:
-            # Use language-specific voice
-            voice = get_voice(language, gender)
-            ref_voice = voice['file']
-            ref_text = voice['transcript']
-        
         if self.model == "F5-TTS":
-            self._generate_f5tts(text, output_path, ref_voice, ref_text, language, skip_processing, speed, cfg_strength, seed)
+            self._generate_f5tts(text, output_path, ref_voice, ref_text, language, skip_processing, speed, cfg_strength, seed, eq_spec)
         else:
             raise ValueError(f"Unknown TTS model: {self.model}")
         
         return output_path
     
-    def _generate_f5tts(self, text: str, output_path: str, ref_voice: str, ref_text: str, language: str = "english", skip_processing: bool = False, speed: float = 1.0, cfg_strength: float = None, seed: int = None):
+    def _generate_f5tts(self, text: str, output_path: str, ref_voice: str, ref_text: str, language: str = "english", skip_processing: bool = False, speed: float = 1.0, cfg_strength: float = None, seed: int = None, eq_spec: dict = None):
         """Generate using F5-TTS API"""
         import sys
         sys.path.insert(0, "C:/sourceCode/TTS/.venv/Lib/site-packages")
@@ -156,6 +161,14 @@ class TTSEngine:
                 # Clean up raw file
                 import os
                 os.remove(temp_output)
+
+                # Optional per-voice corrective EQ (after the broadcast chain)
+                if eq_spec:
+                    from audio_processing import apply_voice_eq
+                    import os as _os
+                    eq_tmp = output_path.replace('.wav', '_eq.wav')
+                    apply_voice_eq(output_path, eq_tmp, eq_spec, sr=48000)
+                    _os.replace(eq_tmp, output_path)
             else:
                 print(f"[TTS] Skipping radio processing (raw output)")
                 import os

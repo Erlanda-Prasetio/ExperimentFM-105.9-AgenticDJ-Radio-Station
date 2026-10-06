@@ -79,6 +79,44 @@ NAMED_VOICES = {
         "persona": "",
         "cfg": 1.8
     },
+    "uk": {
+        "name": "Rebecca",
+        "file": str(VOICE_DIR / "voice_ref_uk.wav"),
+        "transcript": "Thanks a lot, Jamie. The time now is 7.01pm and you are locked in to Freeze FM with me, Kali Trainor, where I will be bringing you the biggest and baddest tunes of the last seven days.",
+        "gender": "female",
+        "persona": "",
+        "cfg": 2.2
+    },
+    "meg": {
+        "name": "Megan",
+        "file": str(VOICE_DIR / "voice_ref_megan.wav"),
+        "transcript": "Honestly, being on stage as Mayo is like a whole different vibe, you know? Like, Megan is just me, chilling, but when I get up there, it's like this total energy shift. I've always loved that contrast. It's actually so funny how a name can change how you feel.",
+        "gender": "female",
+        "persona": "",
+        "cfg": 2.0
+    },
+    "ethan": {
+        "name": "Ethan",
+        "file": str(VOICE_DIR / "voice_ref_ethan.wav"),
+        "transcript": "It's like if Radiohead had a baby with a synthesizer then that baby was raised by wolves who only listened to 80s New Wave. Just, just listen.",
+        "gender": "male",
+        "persona": "",
+        "cfg": 2.4,
+        "speed": 0.9,
+        "eq": {
+            "peaks": [[3500, -5.0, 1.0], [6500, -4.0, 1.2]],
+            "shelves": [[9000, -4.5]]
+        }
+    },
+    "jerry": {
+        "name": "Jerry",
+        "file": str(VOICE_DIR / "voice_ref_jerry.wav"),
+        "transcript": "Hey, welcome to Experiment FM 105.9. I'm your AI host for tonight.",
+        "gender": "male",
+        "persona": "",
+        "cfg": 2.4,
+        "speed": 1.1
+    },
 }
 
 

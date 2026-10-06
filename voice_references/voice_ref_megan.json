@@ -1,0 +1,16 @@
+{
+  "voice_name": "meg",
+  "file": "voice_ref_megan.wav",
+  "source": "MEGAN-SKIENDEL-2026-10-06-13-19-Honestly,-being-on-stage-as-Mayo-is-like-a-whole.mp3",
+  "segment": "4.00s - 8.32s (short single-sentence cut: 'Like, Megan is just me, chilling...')",
+  "duration_s": 4.32,
+  "sample_rate": 44100,
+  "channels": 1,
+  "language": "english",
+  "gender": "female",
+  "style": "casual, conversational, expressive (Megan Skiendel as 'Mayo')",
+  "transcript": "Like, Megan is just me, chilling, but when I get up there, it's like this total energy shift.",
+  "transcribed_by": "faster-whisper small (en)",
+  "notes": "FIXED reference-text leak. The original 14s / 4-sentence reference made F5-TTS re-speak the tail of ref_text ('...a name can change how you feel') at the start of generated audio in 5/6 takes. Cause: reference too long for F5-TTS (likes 5-10s). Fix: cut to a single 4.3s sentence. Confirmed 0/6 leak rate after the cut. Old 14s ref kept as voice_ref_megan_14s_full.wav.",
+  "cfg_strength_suggestion": 2.0
+}

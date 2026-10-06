@@ -49,3 +49,42 @@ def radio_processing(in_path: str, out_path: str, sr: int = 48000):
         f.write(audio)
     
     print(f"[Audio Processing] Applied radio chain: {out_path}")
+
+
+def apply_voice_eq(in_path: str, out_path: str, eq_spec: dict, sr: int = 48000):
+    """
+    Apply a per-voice corrective EQ AFTER the broadcast chain.
+
+    Used for individual DJ voices that need extra shaping (e.g. a piercing treble
+    that only affects one voice). Leaves all other voices untouched.
+
+    eq_spec shape:
+        {"peaks":  [[freq_hz, gain_db, q], ...],
+         "shelves":[[freq_hz, gain_db], ...]}
+
+    Re-normalizes to -16 LUFS so loudness is unchanged.
+    """
+    if not eq_spec:
+        return
+    stages = []
+    for freq, gain, q in eq_spec.get("peaks", []):
+        stages.append(PeakFilter(cutoff_frequency_hz=freq, gain_db=gain, q=q))
+    for freq, gain in eq_spec.get("shelves", []):
+        stages.append(HighShelfFilter(cutoff_frequency_hz=freq, gain_db=gain))
+    if not stages:
+        return
+
+    board = Pedalboard(stages)
+    with AudioFile(in_path).resampled_to(sr) as f:
+        audio = f.read(f.frames)
+    audio = board(audio, sr)
+
+    meter = pyln.Meter(sr)
+    lufs = meter.integrated_loudness(audio.T)
+    audio = pyln.normalize.loudness(audio.T, lufs, -16.0).T
+    audio = np.clip(audio, -0.99, 1.0)
+
+    with AudioFile(out_path, "w", sr, audio.shape[0]) as f:
+        f.write(audio)
+
+    print(f"[Audio Processing] Applied per-voice EQ: {out_path}")
