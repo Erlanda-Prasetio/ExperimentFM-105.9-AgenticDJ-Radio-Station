@@ -230,14 +230,20 @@ def main():
         radio.cycle_number = st.get("cycle_number", 1)
         radio.current_dj_idx = st.get("current_dj_idx", 0)
         radio.handoff_armed = st.get("handoff_armed", False)
-        radio.last_session_song = st.get("last_song")
         radio.shift_started_at = clock.now()   # shift clock continues from here (aired-time)
         radio.last_station_id_hour = None
-        # Also restore the DJ roster index into the loaded state so a handoff
-        # mid-batch keeps the same on-air DJ.
+        # Continuity: tell the DJ what it just finished (so the next break flows
+        # naturally) and SUPPRESS the "returning listeners" greeting -- this is a
+        # continuous batch, not a station coming back from a dead-air gap.
+        last_fp = radio.play_history[-1] if radio.play_history else None
+        radio.current_song = radio._get_track_by_filepath(last_fp) if last_fp else None
+        radio.last_session_song = None
+        radio.resumed_gap_hours = 0.0
+        radio.dj_just_started = False
         print(f"[Resume] OK: continuing batch - {len(radio.play_history)} songs already played, "
               f"{len(radio.played_this_cycle)}/{len(radio.playlist.library)} excluded this cycle, "
-              f"cycle #{radio.cycle_number}, DJ idx {radio.current_dj_idx}")
+              f"cycle #{radio.cycle_number}, DJ idx {radio.current_dj_idx}"
+              + (f", last song: {radio.current_song.title}" if radio.current_song else ""))
 
     mixer.set_parts_dir(parts_dir)
 
