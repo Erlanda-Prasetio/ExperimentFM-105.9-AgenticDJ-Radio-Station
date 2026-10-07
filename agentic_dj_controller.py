@@ -48,7 +48,7 @@ class AgenticRadioController:
     def __init__(self, music_dir: str, station_name: str, llm_endpoint: str, 
                  llm_api_key: str, llm_model: str, tts_model: str = "F5-TTS", dj_voice: str = "naksh",
                  dj_filter: Optional[List[str]] = None, record_mode: bool = False,
-                 record_hours: float = 0.0):
+                 record_hours: float = 0.0, state_file: Optional[str] = None):
         self.station_name = station_name
         self.llm_endpoint = llm_endpoint
         self.llm_api_key = llm_api_key
@@ -113,7 +113,9 @@ class AgenticRadioController:
             print(f"[Record] Fresh run from 0 (isolated state: {self.state_file})")
             print(f"[Record] LIVE state NOT touched")
         else:
-            self.state_file = self._state_file_path(music_dir)
+            # An explicit state_file (e.g. qwen_radio_state_*.json) isolates this
+            # run from the LIVE radio state -> the old state is never touched.
+            self.state_file = state_file or self._state_file_path(music_dir)
             # Append-only decision log (JSONL). Unlike session_history_*.json (which is
             # overwritten each run) this is appended, so every break survives restarts.
             self.decisions_log_file = self._decisions_log_path(music_dir)
