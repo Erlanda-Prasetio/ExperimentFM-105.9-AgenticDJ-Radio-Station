@@ -65,6 +65,9 @@ class AgenticRadioController:
         # engine (Qwen) may pronounce native names better WITHOUT it. TTS_PHONETIC=off
         # disables BOTH the respell() step and the "write phonetically" prompt rule.
         self.phonetic = os.getenv("TTS_PHONETIC", "on").strip().lower() not in ("0", "off", "false", "no")
+        # DJ broadcast language. Empty (default) = keep the original English prompt
+        # (F5 path unchanged). Set e.g. DJ_LANGUAGE=Spanish to have the DJ speak it.
+        self.dj_language = os.getenv("DJ_LANGUAGE", "").strip()
         
         # Initialize components
         self.playlist = PlaylistManager(music_dir)
@@ -1148,6 +1151,17 @@ Just finished playing:
         else:
             dj_identity = f"You are the AI DJ for {self.station_name} with FULL AUTONOMY.\n"
 
+        # Broadcast language (Spanish etc). Empty = original English behaviour.
+        language_block = ""
+        if self.dj_language and self.dj_language.lower() != "english":
+            language_block = f"""
+=== LANGUAGE: SPEAK {self.dj_language.upper()} ===
+- Write the ENTIRE script in {self.dj_language} — the way a real {self.dj_language} radio host talks.
+- You may naturally mix in a little English (Spanglish is normal on air), but the main language is {self.dj_language}.
+- Write artist names and song titles in their normal spelling (do not translate them).
+- Keep the same warm, conversational tone — never sound like a translated robot.
+"""
+
         # === STATION ID block (FCC-style: once per hour, NOT every break) ===
         if station_id_due:
             station_id_block = f"""
@@ -1221,7 +1235,7 @@ The text-to-speech engine is multilingual and pronounces Hindi/Bollywood names c
 """
 
         prompt = f"""{dj_identity}
-{station_id_block}{force_instruction}
+{language_block}{station_id_block}{force_instruction}
 {session_memory}{shift_time}{resume_block}{handoff_block}{fyz_block}
 Current Context:
 - Time: {time_str} ({time_of_day})
