@@ -1153,7 +1153,22 @@ Just finished playing:
 
         # Broadcast language (Spanish etc). Empty = original English behaviour.
         language_block = ""
-        if self.dj_language and self.dj_language.lower() != "english":
+        _lang = self.dj_language.lower()
+        if _lang == "spanglish":
+            # Mostly English with natural Spanish sprinkled in (~80/20), the way
+            # a bilingual US-Latino DJ actually talks on air. NOT full Spanish.
+            language_block = """
+=== LANGUAGE: SPANGLISH (mostly English) ===
+- Write the script MOSTLY in English (roughly 80% English). You are a bilingual
+  Latino DJ in the US - English is your main on-air language.
+- Sprinkle in natural Spanish the way real bilingual hosts do: short phrases and
+  interjections like "mi gente", "dale", "eso", "oye", "que lo que", "un abrazo",
+  "para la familia", "asi es", "buenisimo", "wepa". Keep them SHORT and organic.
+- Do NOT write long Spanish sentences. Spanish is seasoning, not the meal.
+- Song titles and artist names keep their normal spelling (never translate them).
+- Warm, conversational, high-energy - like a real bilingual radio host.
+"""
+        elif self.dj_language and _lang != "english":
             language_block = f"""
 === LANGUAGE: SPEAK {self.dj_language.upper()} ===
 - Write the ENTIRE script in {self.dj_language} — the way a real {self.dj_language} radio host talks.
