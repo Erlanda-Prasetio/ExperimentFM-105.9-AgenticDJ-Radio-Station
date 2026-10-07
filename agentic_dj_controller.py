@@ -730,6 +730,7 @@ class AgenticRadioController:
                 recent_plays.append({
                     'title': track.title,
                     'artist': track.artist,
+                    'album': track.album or '',
                     'genre': track.genre
                 })
         
@@ -792,6 +793,7 @@ class AgenticRadioController:
                 'id': sid,
                 'title': track.title,
                 'artist': track.artist,
+                'album': track.album or '',
                 'genre': track.genre or 'Unknown',
                 'language': track.language,
                 'year': track.year or 'Unknown'
@@ -805,6 +807,7 @@ class AgenticRadioController:
                 'id': sid,
                 'title': track.title,
                 'artist': track.artist,
+                'album': track.album or '',
                 'genre': track.genre or 'Unknown',
                 'language': track.language,
                 'year': track.year or 'Unknown'
@@ -1030,6 +1033,7 @@ class AgenticRadioController:
         
         recent_str = "\n".join([
             f"  - \"{p['title']}\" by {p['artist']} ({p['genre']})"
+            + (f" [album/film: {p['album']}]" if p.get('album') else "")
             for p in recent_plays
         ]) if recent_plays else "  (Session just started)"
         
@@ -1230,6 +1234,12 @@ Songs you have NOT played yet this cycle (PREFER THESE):
 
 Your task: Decide the next song AND generate the DJ transition script.
 {pronunciation_block}
+=== FACT GROUNDING (do not hallucinate) ===
+Each song below has an "album" field — for Bollywood songs this is the FILM the song is from.
+- If you mention which film/movie a song is from, use ONLY the "album" value given for that song.
+- NEVER guess or invent a film name. If a song's "album" is empty or you are not certain, DO NOT name a film — just talk about the song, artist, or mood instead.
+- The same goes for composers/lyricists: only name them if you are confident. A wrong film or credit is worse than no credit.
+
 Decision Guidelines:
 1. PREFER a song from the "NOT played yet this cycle" list. Pick it by its "id" number.
 2. If (and only if) you pick from the "ALREADY PLAYED" list, you MUST give a STRONG reason in "reasoning" AND set "repeat_reason" in the JSON. Repeats without a clear reason are forbidden.
