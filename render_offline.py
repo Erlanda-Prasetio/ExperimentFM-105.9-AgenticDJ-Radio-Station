@@ -136,6 +136,8 @@ def main():
     ap.add_argument("--out", default="")
     ap.add_argument("--mock", action="store_true", help="use fake fast TTS (plumbing test)")
     ap.add_argument("--resume", action="store_true")
+    ap.add_argument("--state-file", default="",
+                    help="state file to read/write (default: radio_state_<slug>_OFFLINE.json)")
     ap.add_argument("--normal-shift", action="store_true",
                     help="use SHIFT_HOURS per DJ (normal rotation) instead of hours/#DJs")
     args = ap.parse_args()
@@ -200,22 +202,42 @@ def main():
               f"(roster: {' -> '.join(d['name'] for d in radio.roster)})")
 
     # stable state/decision files so --resume can find them
-    radio.state_file = f"radio_state_{slug}_OFFLINE.json"
+    radio.state_file = args.state_file or f"radio_state_{slug}_OFFLINE.json"
     radio.decisions_log_file = f"decisions_log_{slug}_OFFLINE.jsonl"
 
-    if args.resume and os.path.exists(radio.state_file):
+    if args.resume:
+        # STRICT resume: the whole point is to CONTINUE the previous batch
+        # (same cycle, already-played songs stay excluded, same DJ). If anything
+        # is missing we ABORT instead of silently starting fresh -- a silent
+        # refresh would replay songs and reset the DJ, exactly what we must not do.
+        if not os.path.exists(radio.state_file):
+            print(f"[Resume] ABORT: state file not found: {radio.state_file}")
+            print(f"[Resume] Refusing to start fresh. Pass the correct --state-file.")
+            return
         try:
             with open(radio.state_file, "r", encoding="utf-8") as f:
                 st = json.load(f)
-            radio.play_history = st.get("play_history", [])
-            radio.played_this_cycle = set(st.get("played_this_cycle", []))
-            radio.cycle_number = st.get("cycle_number", 1)
-            radio.current_dj_idx = st.get("current_dj_idx", 0)
-            radio.shift_started_at = clock.now()   # reset shift clock (aired-time from here)
-            radio.last_station_id_hour = None
-            print(f"[Resume] loaded {len(radio.play_history)} played, cycle #{radio.cycle_number}")
         except Exception as e:
-            print(f"[Resume] failed ({e}) - starting fresh")
+            print(f"[Resume] ABORT: cannot read {radio.state_file} ({e})")
+            return
+        ph = st.get("play_history") or []
+        pc = st.get("played_this_cycle") or []
+        if not ph and not pc:
+            print(f"[Resume] ABORT: state file has no play history - refusing to continue.")
+            return
+        radio.play_history = list(ph)
+        radio.played_this_cycle = set(pc)
+        radio.cycle_number = st.get("cycle_number", 1)
+        radio.current_dj_idx = st.get("current_dj_idx", 0)
+        radio.handoff_armed = st.get("handoff_armed", False)
+        radio.last_session_song = st.get("last_song")
+        radio.shift_started_at = clock.now()   # shift clock continues from here (aired-time)
+        radio.last_station_id_hour = None
+        # Also restore the DJ roster index into the loaded state so a handoff
+        # mid-batch keeps the same on-air DJ.
+        print(f"[Resume] OK: continuing batch - {len(radio.play_history)} songs already played, "
+              f"{len(radio.played_this_cycle)}/{len(radio.playlist.library)} excluded this cycle, "
+              f"cycle #{radio.cycle_number}, DJ idx {radio.current_dj_idx}")
 
     mixer.set_parts_dir(parts_dir)
 
