@@ -23,6 +23,11 @@ radio_state_*.json
 session_history*.json
 decisions_log_*.jsonl
 
+# Offline Qwen render: control/status files + comparison clips
+render_control.json
+render_status.json
+qwen_vs_f5/
+
 # Session recordings (large MP3s; keep local, never commit)
 recordings/
 

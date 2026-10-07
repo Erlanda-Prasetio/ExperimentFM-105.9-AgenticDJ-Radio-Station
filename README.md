@@ -205,6 +205,39 @@ python agenticMain.py --record --hours 2 --djs cara,junior
 
 ---
 
+## Offline Render (Qwen3-TTS) — lebih cepat dari real-time
+
+Render siaran **tanpa speaker, tanpa nunggu real-time**, pakai **Qwen3-TTS 0.6B** (suara lebih halus dari F5). Bisa **pause/resume** dan **tahan crash**.
+
+```bash
+# Cara 3 jam + Junior 1 jam (shift normal), total 4 jam:
+render.bat
+
+# Atau langsung (venv Qwen):
+C:/sourceCode/Qwen3-TTS/.venv/Scripts/python.exe render_offline.py ^
+    --hours 4 --djs cara,junior --normal-shift
+
+# Tes cepat (mock TTS, tanpa GPU):
+... render_offline.py --mock --minutes 10 --djs cara,junior
+```
+
+**Kontrol saat jalan** (edit `render_control.json`):
+| Nilai | Aksi |
+|---|---|
+| `{"action":"run"}` | jalan / lanjut |
+| `{"action":"pause"}` | berhenti sebentar (proses idle, lanjut pas `run`) |
+| `{"action":"stop"}` | stop + langsung assemble yang udah jadi |
+
+- **Shift normal** (`--normal-shift`): tiap DJ pegang **`SHIFT_HOURS`** penuh (default 3h) → 4 jam = **Cara 3h + Junior 1h**. Tanpa flag ini, shift = `--hours ÷ jumlah DJ`.
+- **Crash-safe:** tiap break+lagu jadi satu "part" (`recordings/_parts_*/part_NNNNN.f32` + `.done`). Kalau mati listrik / di-kill, jalanin lagi dengan **`--resume`** → lanjut dari part terakhir, **nggak ngulang dari 0**.
+- **Kecepatan:** ~**1,6x real-time** (1 jam show ≈ 1,6 jam render), karena DJ cuma ngomong ~15% waktu × RTF Qwen ~10. Di GPU kecil (RTX 3050 4GB) Qwen **nggak bisa real-time**, tapi buat render offline ini cukup.
+- **Output:** sama seperti Recording Mode — MP3 CBR **192k, 44.1kHz stereo, ID3v2.3**.
+- **Aman:** nggak butuh audio device (bisa ditinggal, laptop nggak perlu speaker hidup). Radio LIVE (`agenticMain.py`) **nggak disentuh** — patch-nya cuma di proses render.
+
+> Butuh **dua venv**: radio (`RadioExperiment/.venv`) + Qwen (`C:/sourceCode/Qwen3-TTS/.venv`). Script otomatis nge-append site-packages radio ke venv Qwen, jadi satu proses jalan semua. Model Qwen di `C:/sourceCode/Qwen3-TTS/models/` (~3GB).
+
+---
+
 ## Struktur File
 
 ```
