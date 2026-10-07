@@ -31,22 +31,39 @@ load_dotenv()
 
 DEFAULT_LLM = os.getenv("QWEN_LLM_MODEL", "cbai/claude-opus-4.7-1m")
 
-# Isolated state file: the Qwen live run NEVER reads or writes the F5 live state
-# (radio_state_<slug>.json). It keeps its own progress instead.
-QWEN_STATE_FILE = "qwen_radio_state_wow_this_ist_gud.json"
+
+def _slug(name: str) -> str:
+    import re
+    return re.sub(r'[^a-zA-Z0-9]+', '_', name).strip('_').lower()
+
+
+def qwen_state_file(music_dir: str) -> str:
+    """Isolated, PER-PLAYLIST state file. The Qwen live run NEVER reads or writes
+    the F5 live state (radio_state_<slug>.json) nor another playlist's Qwen state."""
+    return f"qwen_radio_state_{_slug(os.path.basename(os.path.normpath(music_dir)))}.json"
 
 
 def parse_args(argv):
-    """Parse --llm MODEL, --hours N, --playlist NAME, --voice NAME, and DJ-filter flags (-cara -junior)."""
+    """Parse --llm MODEL, --hours N, --playlist NAME, --voice NAME, --lang LANG,
+    and DJ-filter flags (-cara -junior)."""
     hours = 0.0
     dj_filter = []
     llm = DEFAULT_LLM
     playlist = None
     voice = None
+    lang = None
 
     i = 0
     while i < len(argv):
         a = argv[i]
+        if a == "--lang" and i + 1 < len(argv):
+            lang = argv[i + 1]
+            i += 2
+            continue
+        if a.startswith("--lang="):
+            lang = a.split("=", 1)[1]
+            i += 1
+            continue
         if a == "--voice" and i + 1 < len(argv):
             voice = argv[i + 1]
             i += 2
@@ -99,7 +116,7 @@ def parse_args(argv):
             continue
         i += 1
 
-    return llm, dj_filter, hours, playlist, voice
+    return llm, dj_filter, hours, playlist, voice, lang
 
 
 def select_playlist_folder():
@@ -117,7 +134,7 @@ def select_playlist_folder():
         return None, None
 
     voice_map = {
-        "ats_removed_non_english": "naksh",
+        "ats_removed_non_english": "ramon",
         "Punjab Classic In Order": "naksh",
         "Wow, this ist gud": "ara",
     }
@@ -153,17 +170,26 @@ def select_playlist_folder():
 
 def main():
     argv = sys.argv[1:]
-    llm_model, dj_filter, hours, playlist, voice = parse_args(argv)
+    llm_model, dj_filter, hours, playlist, voice, lang = parse_args(argv)
 
     # --voice overrides the single-DJ voice (e.g. --voice naksh_thick)
     if voice:
         os.environ["QWEN_DEFAULT_VOICE"] = voice
 
+    # --lang: DJ broadcast language (Spanglish / Spanish / ...). Also drives the
+    # TTS phonology (QWEN_LANGUAGE): 'auto' lets Qwen switch English<->Spanish.
+    if lang:
+        os.environ["DJ_LANGUAGE"] = lang
+        if lang.lower() in ("spanglish", "mixed"):
+            os.environ["QWEN_LANGUAGE"] = "auto"
+        else:
+            os.environ["QWEN_LANGUAGE"] = lang
+
     if playlist:
         # Non-interactive: --playlist <name|index|substring>
         base_dir = "C:/sourceCode/YT_Downloader/downloads"
         folders = [f for f in os.listdir(base_dir) if os.path.isdir(os.path.join(base_dir, f))]
-        voice_map = {"ats_removed_non_english": "naksh", "Punjab Classic In Order": "naksh",
+        voice_map = {"ats_removed_non_english": "ramon", "Punjab Classic In Order": "naksh",
                      "Wow, this ist gud": "ara"}
         match = None
         if playlist.isdigit() and 1 <= int(playlist) <= len(folders):
@@ -190,6 +216,18 @@ def main():
         print("[Error] Playlist selection failed. Exiting.")
         return
 
+    # --- Playlist-implied defaults (CLI --voice / --lang still win) ----------
+    _matched = os.path.basename(os.path.normpath(music_dir))
+    if not voice:
+        os.environ["QWEN_DEFAULT_VOICE"] = dj_voice
+    if not lang:
+        _implied = {"ats_removed_non_english": "Spanglish"}.get(_matched)
+        if _implied:
+            lang = _implied
+    if lang:
+        os.environ["DJ_LANGUAGE"] = lang
+        os.environ["QWEN_LANGUAGE"] = "auto" if lang.lower() in ("spanglish", "mixed") else lang
+
     llm_endpoint = os.getenv("LLM_ENDPOINT", "http://127.0.0.1:20128/v1/chat/completions")
     llm_api_key = os.getenv("LLM_API_KEY", "dummy")
 
@@ -200,6 +238,8 @@ def main():
     print(f"DJ Voice:    {dj_voice.upper()}")
     print(f"TTS:         Qwen3-TTS 0.6B Base")
     print(f"LLM:         {llm_model}")
+    print(f"Language:    {(lang or os.getenv('DJ_LANGUAGE') or 'English')} "
+          f"(TTS phonology: {os.getenv('QWEN_LANGUAGE', 'English')})")
     print(f"Endpoint:    {llm_endpoint}")
     if dj_filter:
         print(f"DJ filter:   {', '.join(dj_filter)}")
@@ -223,7 +263,7 @@ def main():
             dj_filter=dj_filter or None,
             record_mode=False,          # LIVE: normal state file
             record_hours=0.0,
-            state_file=QWEN_STATE_FILE,  # isolated: never touches the F5 live state
+            state_file=qwen_state_file(music_dir),  # isolated + per-playlist
         )
 
         radio.start_broadcast()
