@@ -383,6 +383,7 @@ class AgenticRadioController:
         voice_gender_map = {
             "naksh": "male",
             "naksh_thick": "male",
+            "ramon": "male",
             "ara": "female",
             "jr": "male",
         }

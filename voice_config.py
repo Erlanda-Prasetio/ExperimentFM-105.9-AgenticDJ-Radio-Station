@@ -71,6 +71,14 @@ NAMED_VOICES = {
         "persona": "",
         "cfg": 1.6
     },
+    "ramon": {
+        "name": "Ramón",
+        "file": str(VOICE_DIR / "voice_ref_spanish_full.wav"),
+        "transcript": "Hola, muy buenas noches. Están escuchando Experiment FM, uno cero cinco punto nueve. Soy Ramón, y esta noche la música es toda suya. Salsa, bachata, reggaetón, y por supuesto, puro dembow dominicano. El Alfa, Farruko, Bad Bunny, Marc Anthony.",
+        "gender": "male",
+        "persona": "Warm Latin American radio host. Speaks natural Spanish with light Spanglish, the way real DJs talk. Deeply into Dominican dembow and reggaeton - knows El Alfa, Farruko, Bad Bunny, Don Miguelo, Jey One, Marc Anthony. Passionate, not a poser. Treats listeners like family - mi gente. Energetic but sincere, never cheesy.",
+        "cfg": 1.6
+    },
     "ara": {
         "name": "Cara",
         "file": str(VOICE_DIR / "[DJ CARA (GTA V)] Hey.mp3"),
