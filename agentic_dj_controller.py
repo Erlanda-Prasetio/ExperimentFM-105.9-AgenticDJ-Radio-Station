@@ -61,6 +61,10 @@ class AgenticRadioController:
         self.record_hours = float(record_hours or 0.0)
         self.record_started_at = datetime.now()
         self.shift_hours = float(os.getenv("SHIFT_HOURS", "3"))  # rotating DJ shift length
+        # Phonetic respelling: a hardcoded dictionary tuned for F5-TTS. A multilingual
+        # engine (Qwen) may pronounce native names better WITHOUT it. TTS_PHONETIC=off
+        # disables BOTH the respell() step and the "write phonetically" prompt rule.
+        self.phonetic = os.getenv("TTS_PHONETIC", "on").strip().lower() not in ("0", "off", "false", "no")
         
         # Initialize components
         self.playlist = PlaylistManager(music_dir)
@@ -367,8 +371,9 @@ class AgenticRadioController:
     def _prep_tts_text(self, script: str) -> str:
         """Prepare a DJ script for TTS: phonetic respell (Hindi names) + number
         normalization (105.9 -> 'one oh five point nine') + light punctuation cleanup.
-        Code owns this so the LLM can keep writing natural text."""
-        text = respell(script)
+        Code owns this so the LLM can keep writing natural text.
+        Set TTS_PHONETIC=off to skip the respell step (for multilingual engines)."""
+        text = respell(script) if self.phonetic else script
         text = normalize_numbers(text)
         text = text.replace('!', '.').replace('...', ',')
         return text
@@ -1183,7 +1188,33 @@ You ({dj_name}) are just taking over the mic from {handoff_from}.
         # nag about station-ID frequency there — let the handoff block own the moment.
         if handoff_mode in ('hello', 'goodbye'):
             station_id_block = ""
-        
+
+        # Pronunciation rule: when phonetic respelling is ON (F5-TTS), the LLM writes
+        # names phonetically. When OFF (multilingual engines like Qwen), the LLM writes
+        # native names as-is and lets the engine pronounce them.
+        if self.phonetic:
+            pronunciation_block = """
+CRITICAL PRONUNCIATION RULE for Hindi/Bollywood names:
+Write Hindi names, movie titles, and song titles PHONETICALLY using English spelling so text-to-speech pronounces them correctly.
+
+Examples:
+- "Arijit Singh" → "Ah-ree-jeet Sing"
+- "Kabhi Khushi Kabhie Gham" → "Kah-bee Koo-shee Kah-bee Gum"  
+- "Rab Ne Bana Di Jodi" → "Rub Nay Bah-nah Dee Joe-dee"
+- "Shah Rukh Khan" → "Shah Rook Kahn"
+- "Tum Hi Ho" → "Toom Hee Hoh"
+"""
+        else:
+            pronunciation_block = """
+PRONUNCIATION RULE for Hindi/Bollywood names:
+Write Hindi names, movie titles, and song titles in their NORMAL, CORRECT spelling (NOT phonetically).
+The text-to-speech engine is multilingual and pronounces Hindi/Bollywood names correctly on its own.
+- Write "Arijit Singh" (not "Ah-ree-jeet Sing")
+- Write "Kabhi Khushi Kabhie Gham" (not "Kah-bee Koo-shee Kah-bee Gum")
+- Write "Shah Rukh Khan" (not "Shah Rook Kahn")
+- Keep Hindi words in natural English spelling as they are normally written.
+"""
+
         prompt = f"""{dj_identity}
 {station_id_block}{force_instruction}
 {session_memory}{shift_time}{resume_block}{handoff_block}{fyz_block}
@@ -1198,17 +1229,7 @@ Songs you have NOT played yet this cycle (PREFER THESE):
 {songs_str}{replay_block}
 
 Your task: Decide the next song AND generate the DJ transition script.
-
-CRITICAL PRONUNCIATION RULE for Hindi/Bollywood names:
-Write Hindi names, movie titles, and song titles PHONETICALLY using English spelling so text-to-speech pronounces them correctly.
-
-Examples:
-- "Arijit Singh" → "Ah-ree-jeet Sing"
-- "Kabhi Khushi Kabhie Gham" → "Kah-bee Koo-shee Kah-bee Gum"  
-- "Rab Ne Bana Di Jodi" → "Rub Nay Bah-nah Dee Joe-dee"
-- "Shah Rukh Khan" → "Shah Rook Kahn"
-- "Tum Hi Ho" → "Toom Hee Hoh"
-
+{pronunciation_block}
 Decision Guidelines:
 1. PREFER a song from the "NOT played yet this cycle" list. Pick it by its "id" number.
 2. If (and only if) you pick from the "ALREADY PLAYED" list, you MUST give a STRONG reason in "reasoning" AND set "repeat_reason" in the JSON. Repeats without a clear reason are forbidden.
@@ -1234,7 +1255,6 @@ Decision Guidelines:
    - Speak TO your listeners - they're REAL PEOPLE out there tuning in
    - Some moments deserve 20s, others deserve 60s - trust your instinct
    - Make them feel connected, inspired, or entertained
-   - Use phonetic spelling for ALL Hindi words
    - Be conversational and GENUINE
    - Use MINIMAL punctuation (commas okay, avoid exclamation marks)
    
