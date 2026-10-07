@@ -63,6 +63,14 @@ NAMED_VOICES = {
         "persona": "",
         "cfg": 1.6
     },
+    "naksh_thick": {
+        "name": "Naksh",
+        "file": str(VOICE_DIR / "naksh_very_thick.wav"),
+        "transcript": "Namaste and welcome to Experiment FM one-oh-five point nine. I'm your host for the evening. We've got an amazing collection of Bollywood hits lined up for you tonight, from the classics to the latest chartbusters. So sit back, relax, and let the music take over.",
+        "gender": "male",
+        "persona": "",
+        "cfg": 1.6
+    },
     "ara": {
         "name": "Cara",
         "file": str(VOICE_DIR / "[DJ CARA (GTA V)] Hey.mp3"),

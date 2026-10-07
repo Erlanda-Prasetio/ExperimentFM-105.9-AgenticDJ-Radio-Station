@@ -35,6 +35,17 @@ class QwenTTSEngine:
         main_voice = get_main_dj_voice(main_dj_gender)
         self.default_voice = main_voice['file']
         self.default_text = main_voice['transcript']
+        # Optional override: a named voice used when no voice_name is passed
+        # (single-DJ mode). e.g. QWEN_DEFAULT_VOICE=naksh_thick
+        _ov = os.getenv("QWEN_DEFAULT_VOICE")
+        if _ov:
+            _named = get_named_voice(_ov)
+            if _named:
+                self.default_voice = _named['file']
+                self.default_text = _named['transcript']
+                print(f"[QwenTTS] Default voice overridden -> {_ov} ({_named['name']})")
+            else:
+                print(f"[QwenTTS] ⚠️ QWEN_DEFAULT_VOICE={_ov} not found - using default")
         self.cache_dir = Path("tts_cache")
         self.cache_dir.mkdir(exist_ok=True)
         self._qwen = None

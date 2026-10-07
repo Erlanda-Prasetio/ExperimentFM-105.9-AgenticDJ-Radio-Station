@@ -37,15 +37,24 @@ QWEN_STATE_FILE = "qwen_radio_state_wow_this_ist_gud.json"
 
 
 def parse_args(argv):
-    """Parse --llm MODEL, --hours N, --playlist NAME, and DJ-filter flags (-cara -junior)."""
+    """Parse --llm MODEL, --hours N, --playlist NAME, --voice NAME, and DJ-filter flags (-cara -junior)."""
     hours = 0.0
     dj_filter = []
     llm = DEFAULT_LLM
     playlist = None
+    voice = None
 
     i = 0
     while i < len(argv):
         a = argv[i]
+        if a == "--voice" and i + 1 < len(argv):
+            voice = argv[i + 1]
+            i += 2
+            continue
+        if a.startswith("--voice="):
+            voice = a.split("=", 1)[1]
+            i += 1
+            continue
         if a == "--llm" and i + 1 < len(argv):
             llm = argv[i + 1]
             i += 2
@@ -90,7 +99,7 @@ def parse_args(argv):
             continue
         i += 1
 
-    return llm, dj_filter, hours, playlist
+    return llm, dj_filter, hours, playlist, voice
 
 
 def select_playlist_folder():
@@ -144,7 +153,11 @@ def select_playlist_folder():
 
 def main():
     argv = sys.argv[1:]
-    llm_model, dj_filter, hours, playlist = parse_args(argv)
+    llm_model, dj_filter, hours, playlist, voice = parse_args(argv)
+
+    # --voice overrides the single-DJ voice (e.g. --voice naksh_thick)
+    if voice:
+        os.environ["QWEN_DEFAULT_VOICE"] = voice
 
     if playlist:
         # Non-interactive: --playlist <name|index|substring>
