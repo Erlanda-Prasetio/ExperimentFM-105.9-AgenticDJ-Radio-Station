@@ -37,10 +37,11 @@ QWEN_STATE_FILE = "qwen_radio_state_wow_this_ist_gud.json"
 
 
 def parse_args(argv):
-    """Parse --llm MODEL, --hours N, and DJ-filter flags (-cara -junior)."""
+    """Parse --llm MODEL, --hours N, --playlist NAME, and DJ-filter flags (-cara -junior)."""
     hours = 0.0
     dj_filter = []
     llm = DEFAULT_LLM
+    playlist = None
 
     i = 0
     while i < len(argv):
@@ -51,6 +52,14 @@ def parse_args(argv):
             continue
         if a.startswith("--llm="):
             llm = a.split("=", 1)[1]
+            i += 1
+            continue
+        if a == "--playlist" and i + 1 < len(argv):
+            playlist = argv[i + 1]
+            i += 2
+            continue
+        if a.startswith("--playlist="):
+            playlist = a.split("=", 1)[1]
             i += 1
             continue
         if a == "--hours" and i + 1 < len(argv):
@@ -81,7 +90,7 @@ def parse_args(argv):
             continue
         i += 1
 
-    return llm, dj_filter, hours
+    return llm, dj_filter, hours, playlist
 
 
 def select_playlist_folder():
@@ -135,9 +144,35 @@ def select_playlist_folder():
 
 def main():
     argv = sys.argv[1:]
-    llm_model, dj_filter, hours = parse_args(argv)
+    llm_model, dj_filter, hours, playlist = parse_args(argv)
 
-    music_dir, dj_voice = select_playlist_folder()
+    if playlist:
+        # Non-interactive: --playlist <name|index|substring>
+        base_dir = "C:/sourceCode/YT_Downloader/downloads"
+        folders = [f for f in os.listdir(base_dir) if os.path.isdir(os.path.join(base_dir, f))]
+        voice_map = {"ats_removed_non_english": "naksh", "Punjab Classic In Order": "naksh",
+                     "Wow, this ist gud": "ara"}
+        match = None
+        if playlist.isdigit() and 1 <= int(playlist) <= len(folders):
+            match = folders[int(playlist) - 1]
+        else:
+            for f in folders:
+                if f.lower() == playlist.lower():
+                    match = f
+                    break
+            if match is None:
+                for f in folders:
+                    if playlist.lower() in f.lower():
+                        match = f
+                        break
+        if match is None:
+            print(f"[Error] --playlist {playlist!r} matched no folder. Options: {folders}")
+            return
+        music_dir = os.path.join(base_dir, match)
+        dj_voice = voice_map.get(match, "naksh")
+        print(f"✓ Playlist: {match}  (voice {dj_voice.upper()})")
+    else:
+        music_dir, dj_voice = select_playlist_folder()
     if not music_dir or not dj_voice:
         print("[Error] Playlist selection failed. Exiting.")
         return
