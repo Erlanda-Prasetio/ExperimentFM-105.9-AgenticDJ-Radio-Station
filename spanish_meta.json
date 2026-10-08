@@ -1,62 +1,298 @@
 {
   "_note": "Metadata mapping for ats_removed_non_english (brother's folder). Keyed by exact filename stem. genre/language guesses; years best-effort.",
-  "Ahora Quien (Salsa Version)": {"artist": "Marc Anthony", "genre": "Salsa", "year": "2013"},
-  "Arrebatao": {"artist": "El Alfa", "genre": "Dembow", "year": "2024"},
-  "Bailalo Rocky": {"artist": "Yoan Retro, GMBeats Degranalo & Ariadne Arana", "genre": "Dembow", "year": "2024"},
-  "Bendecido": {"artist": "El Alfa & FARIANA", "genre": "Dembow", "year": "2024"},
-  "Bo Bo Bo": {"artist": "Jey One", "genre": "Dembow", "year": "2024"},
-  "Brujeria": {"artist": "El Gran Combo de Puerto Rico", "genre": "Salsa", "year": "1979"},
-  "CUCULLO": {"artist": "El Alfa", "genre": "Dembow", "year": "2019"},
-  "Chu Chu Pamela": {"artist": "El Alfa", "genre": "Dembow", "year": "2021"},
-  "Coronao Now": {"artist": "El Alfa feat. Lil Pump", "genre": "Dembow", "year": "2019"},
-  "Curazao": {"artist": "El Alfa feat. Farruko", "genre": "Dembow", "year": "2019"},
-  "Dema Ga Ge Gi Go Gu": {"artist": "El Alfa & Bad Bunny", "genre": "Dembow", "year": "2018"},
-  "Dembow y Reggaeton": {"artist": "El Alfa, Yandel & Myke Towers", "genre": "Dembow", "year": "2021"},
-  "DORA": {"artist": "FARIANA & El Alfa", "genre": "Dembow", "year": "2024"},
-  "El Cucu": {"artist": "Wilfrido Vargas", "genre": "Merengue", "year": "1985"},
-  "En Barranquilla Me Quedo": {"artist": "Joe Arroyo", "genre": "Salsa", "year": "1988"},
-  "Flor Pálida": {"artist": "Marc Anthony", "genre": "Salsa", "year": "2013"},
-  "Fuego": {"artist": "El Alfa & Bad Bunny", "genre": "Dembow", "year": "2018"},
-  "Gotas de Lluvia": {"artist": "Grupo Niche", "genre": "Salsa", "year": "1999"},
-  "In Da Getto": {"artist": "J Balvin & Skrillex", "genre": "Reggaeton", "year": "2021"},
-  "La Mamá de la Mamá": {"artist": "El Alfa, CJ & El Cherry Scom", "genre": "Dembow", "year": "2021"},
-  "La Rebelion": {"artist": "Joe Arroyo", "genre": "Salsa", "year": "1986"},
-  "LICELOT": {"artist": "El Alfa, Brazil21 & Mr. Manyao", "genre": "Dembow", "year": "2024"},
-  "MamaZota": {"artist": "Arlene MC", "genre": "Dembow", "year": "2025"},
-  "Mera Woo": {"artist": "El Alfa", "genre": "Dembow", "year": "2020"},
-  "Moli": {"artist": "El Alfa feat. Papa Jeison", "genre": "Dembow", "year": "2020"},
-  "Montuno Encendido - La Sonora Estelar": {"artist": "La Sonora Estelar", "genre": "Salsa", "year": "1990"},
-  "Mueve La Cadera": {"artist": "El Alfa feat. Kiko El Crazy", "genre": "Dembow", "year": "2019"},
-  "Ni un Ki Ki": {"artist": "Jey One & Yailin la Mas Viral", "genre": "Dembow", "year": "2024"},
-  "NO MAÑANA": {"artist": "Black Eyed Peas & El Alfa", "genre": "Dembow", "year": "2024"},
-  "NUEVAYoL": {"artist": "Bad Bunny", "genre": "Reggaeton", "year": "2025"},
-  "Obsesion": {"artist": "Aventura", "genre": "Bachata", "year": "2002"},
-  "Oiga, Mire, Vea": {"artist": "Guayacán Orquesta", "genre": "Salsa", "year": "1990"},
-  "Pa Pa Pa": {"artist": "El Alfa", "genre": "Dembow", "year": "2018"},
-  "PANTI Y COLALE": {"artist": "DJ Chulo NYC, El Cherry Scom & La Greña", "genre": "Dembow", "year": "2023"},
-  "Panty": {"artist": "Don Miguelo & Shelow Shaq", "genre": "Dembow", "year": "2020"},
-  "Pepas": {"artist": "Farruko", "genre": "Reggaeton", "year": "2021"},
-  "PLEBADA": {"artist": "El Alfa feat. Peso Pluma", "genre": "Dembow", "year": "2023"},
-  "Pónmela": {"artist": "Jey One x Don Miguelo", "genre": "Dembow", "year": "2024"},
-  "Qué Precio Tiene el Cielo (Salsa Version)": {"artist": "Marc Anthony", "genre": "Salsa", "year": "2004"},
-  "Raputin (feat. El Alfa, La Manta RD & La Sabiduría)": {"artist": "El Alfa, La Manta RD & La Sabiduría", "genre": "Dembow", "year": ""},
-  "Recogelo": {"artist": "El Alfa", "genre": "Dembow", "year": "2018"},
-  "Si, Es Así": {"artist": "El Alfa & Kim Loaiza", "genre": "Reggaeton", "year": "2024"},
-  "Sientate En Ese Deo": {"artist": "El Alfa", "genre": "Dembow", "year": "2018"},
-  "Singapur": {"artist": "El Alfa feat. Chencho Corleone, Farruko, Justin Quiles & Myke Towers", "genre": "Dembow", "year": "2020"},
-  "Suave (Remix)": {"artist": "El Alfa feat. Chencho, Plan B, Bryant Myers, Noriel, Jon Z & Miky Woodz", "genre": "Dembow", "year": "2019"},
-  "Suave": {"artist": "El Alfa & Chael Produciendo", "genre": "Dembow", "year": "2019"},
-  "Te La Detete": {"artist": "Nico Parga & La Prendia", "genre": "Dembow", "year": "2024"},
-  "Tecnobow": {"artist": "El Alfa", "genre": "Dembow", "year": "2019"},
-  "Tití Me Preguntó": {"artist": "Bad Bunny", "genre": "Reggaeton", "year": "2022"},
-  "Toco Toco To": {"artist": "Dixson Waz", "genre": "Dembow", "year": "2018"},
-  "Tu amor me hace bien": {"artist": "Marc Anthony", "genre": "Salsa", "year": "2004"},
-  "Tú Con Él": {"artist": "Rauw Alejandro", "genre": "Reggaeton", "year": "2021"},
-  "Una Aventura": {"artist": "Ozuna", "genre": "Reggaeton", "year": "2026"},
-  "Valió la Pena (Salsa Version)": {"artist": "Marc Anthony", "genre": "Salsa", "year": "2004"},
-  "Vivir Mi Vida": {"artist": "Marc Anthony", "genre": "Salsa", "year": "2013"},
-  "Y Hubo Alguien": {"artist": "Marc Anthony", "genre": "Salsa", "year": "1997"},
-  "Y Que Fue.": {"artist": "Don Miguelo", "genre": "Dembow", "year": "2020"},
-  "Yo Soy Dominicano": {"artist": "Leo RD & Dilon Baby", "genre": "Dembow", "year": "2023"},
-  "陽光彩虹小白馬": {"artist": "大张伟", "genre": "Mandopop", "year": "2018"}
+  "Ahora Quien (Salsa Version)": {
+    "artist": "Marc Anthony",
+    "genre": "Salsa",
+    "year": "2013"
+  },
+  "Arrebatao": {
+    "artist": "El Alfa",
+    "genre": "Dembow",
+    "year": "2024"
+  },
+  "Bailalo Rocky": {
+    "artist": "Yoan Retro, GMBeats Degranalo & Ariadne Arana",
+    "genre": "Dembow",
+    "year": "2024"
+  },
+  "Bendecido": {
+    "artist": "El Alfa & FARIANA",
+    "genre": "Dembow",
+    "year": "2024"
+  },
+  "Bo Bo Bo": {
+    "artist": "Jey One",
+    "genre": "Dembow",
+    "year": "2024"
+  },
+  "Brujeria": {
+    "artist": "El Gran Combo de Puerto Rico",
+    "genre": "Salsa",
+    "year": "1979"
+  },
+  "CUCULLO": {
+    "artist": "El Alfa",
+    "genre": "Dembow",
+    "year": "2019"
+  },
+  "Chu Chu Pamela": {
+    "artist": "El Alfa",
+    "genre": "Dembow",
+    "year": "2021"
+  },
+  "Coronao Now": {
+    "artist": "El Alfa feat. Lil Pump",
+    "genre": "Dembow",
+    "year": "2019"
+  },
+  "Curazao": {
+    "artist": "El Alfa feat. Farruko",
+    "genre": "Dembow",
+    "year": "2019"
+  },
+  "Dema Ga Ge Gi Go Gu": {
+    "artist": "El Alfa & Bad Bunny",
+    "genre": "Dembow",
+    "year": "2018"
+  },
+  "Dembow y Reggaeton": {
+    "artist": "El Alfa, Yandel & Myke Towers",
+    "genre": "Dembow",
+    "year": "2021"
+  },
+  "DORA": {
+    "artist": "FARIANA & El Alfa",
+    "genre": "Dembow",
+    "year": "2024"
+  },
+  "El Cucu": {
+    "artist": "La Sonora Dinamita",
+    "genre": "Cumbia",
+    "year": "1985"
+  },
+  "En Barranquilla Me Quedo": {
+    "artist": "Joe Arroyo",
+    "genre": "Salsa",
+    "year": "1988"
+  },
+  "Flor Pálida": {
+    "artist": "Marc Anthony",
+    "genre": "Salsa",
+    "year": "2013"
+  },
+  "Fuego": {
+    "artist": "El Alfa & Bad Bunny",
+    "genre": "Dembow",
+    "year": "2018"
+  },
+  "Gotas de Lluvia": {
+    "artist": "Grupo Niche",
+    "genre": "Salsa",
+    "year": "1999"
+  },
+  "In Da Getto": {
+    "artist": "J Balvin & Skrillex",
+    "genre": "Reggaeton",
+    "year": "2021"
+  },
+  "La Mamá de la Mamá": {
+    "artist": "El Alfa, CJ & El Cherry Scom",
+    "genre": "Dembow",
+    "year": "2021"
+  },
+  "La Rebelion": {
+    "artist": "Joe Arroyo",
+    "genre": "Salsa",
+    "year": "1986"
+  },
+  "LICELOT": {
+    "artist": "El Alfa, Brazil21 & Mr. Manyao",
+    "genre": "Dembow",
+    "year": "2024"
+  },
+  "MamaZota": {
+    "artist": "Arlene MC",
+    "genre": "Dembow",
+    "year": "2025"
+  },
+  "Mera Woo": {
+    "artist": "El Alfa",
+    "genre": "Dembow",
+    "year": "2020"
+  },
+  "Moli": {
+    "artist": "El Alfa feat. Papa Jeison",
+    "genre": "Dembow",
+    "year": "2020"
+  },
+  "Montuno Encendido - La Sonora Estelar": {
+    "artist": "La Sonora Estelar",
+    "genre": "Salsa",
+    "year": "1990"
+  },
+  "Mueve La Cadera": {
+    "artist": "El Alfa feat. Kiko El Crazy",
+    "genre": "Dembow",
+    "year": "2019"
+  },
+  "Ni un Ki Ki": {
+    "artist": "Jey One & Yailin la Mas Viral",
+    "genre": "Dembow",
+    "year": "2024"
+  },
+  "NO MAÑANA": {
+    "artist": "Black Eyed Peas & El Alfa",
+    "genre": "Dembow",
+    "year": "2024"
+  },
+  "NUEVAYoL": {
+    "artist": "Bad Bunny",
+    "genre": "Reggaeton",
+    "year": "2025"
+  },
+  "Obsesion": {
+    "artist": "Aventura",
+    "genre": "Bachata",
+    "year": "2002"
+  },
+  "Oiga, Mire, Vea": {
+    "artist": "Guayacán Orquesta",
+    "genre": "Salsa",
+    "year": "1990"
+  },
+  "Pa Pa Pa": {
+    "artist": "El Alfa",
+    "genre": "Dembow",
+    "year": "2018"
+  },
+  "PANTI Y COLALE": {
+    "artist": "DJ Chulo NYC, El Cherry Scom & La Greña",
+    "genre": "Dembow",
+    "year": "2023"
+  },
+  "Panty": {
+    "artist": "Don Miguelo & Shelow Shaq",
+    "genre": "Dembow",
+    "year": "2020"
+  },
+  "Pepas": {
+    "artist": "Farruko",
+    "genre": "Reggaeton",
+    "year": "2021"
+  },
+  "PLEBADA": {
+    "artist": "El Alfa feat. Peso Pluma",
+    "genre": "Dembow",
+    "year": "2023"
+  },
+  "Pónmela": {
+    "artist": "Jey One x Don Miguelo",
+    "genre": "Dembow",
+    "year": "2024"
+  },
+  "Qué Precio Tiene el Cielo (Salsa Version)": {
+    "artist": "Marc Anthony",
+    "genre": "Salsa",
+    "year": "2004"
+  },
+  "Raputin (feat. El Alfa, La Manta RD & La Sabiduría)": {
+    "artist": "El Alfa, La Manta RD & La Sabiduría",
+    "genre": "Dembow",
+    "year": ""
+  },
+  "Recogelo": {
+    "artist": "El Alfa",
+    "genre": "Dembow",
+    "year": "2018"
+  },
+  "Si, Es Así": {
+    "artist": "El Alfa & Kim Loaiza",
+    "genre": "Dembow",
+    "year": "2024"
+  },
+  "Sientate En Ese Deo": {
+    "artist": "El Alfa",
+    "genre": "Dembow",
+    "year": "2018"
+  },
+  "Singapur": {
+    "artist": "El Alfa feat. Chencho Corleone, Farruko, Justin Quiles & Myke Towers",
+    "genre": "Dembow",
+    "year": "2020"
+  },
+  "Suave (Remix)": {
+    "artist": "El Alfa feat. Chencho, Plan B, Bryant Myers, Noriel, Jon Z & Miky Woodz",
+    "genre": "Dembow",
+    "year": "2019"
+  },
+  "Suave": {
+    "artist": "El Alfa & Chael Produciendo",
+    "genre": "Dembow",
+    "year": "2019"
+  },
+  "Te La Detete": {
+    "artist": "Nico Parga & La Prendia",
+    "genre": "Dembow",
+    "year": "2024"
+  },
+  "Tecnobow": {
+    "artist": "El Alfa",
+    "genre": "Dembow",
+    "year": "2019"
+  },
+  "Tití Me Preguntó": {
+    "artist": "Bad Bunny",
+    "genre": "Reggaeton",
+    "year": "2022"
+  },
+  "Toco Toco To": {
+    "artist": "Dixson Waz",
+    "genre": "Dembow",
+    "year": "2018"
+  },
+  "Tu amor me hace bien": {
+    "artist": "Marc Anthony",
+    "genre": "Salsa",
+    "year": "2004"
+  },
+  "Tú Con Él": {
+    "artist": "Rauw Alejandro",
+    "genre": "Reggaeton",
+    "year": "2021"
+  },
+  "Una Aventura": {
+    "artist": "Ozuna",
+    "genre": "Reggaeton",
+    "year": "2026"
+  },
+  "Valió la Pena (Salsa Version)": {
+    "artist": "Marc Anthony",
+    "genre": "Salsa",
+    "year": "2004"
+  },
+  "Vivir Mi Vida": {
+    "artist": "Marc Anthony",
+    "genre": "Salsa",
+    "year": "2013"
+  },
+  "Y Hubo Alguien": {
+    "artist": "Marc Anthony",
+    "genre": "Salsa",
+    "year": "1997"
+  },
+  "Y Que Fue.": {
+    "artist": "Don Miguelo",
+    "genre": "Dembow",
+    "year": "2020"
+  },
+  "Yo Soy Dominicano": {
+    "artist": "Leo RD & Dilon Baby",
+    "genre": "Dembow",
+    "year": "2023"
+  },
+  "陽光彩虹小白馬": {
+    "artist": "大张伟",
+    "genre": "Mandopop",
+    "year": "2018"
+  }
 }

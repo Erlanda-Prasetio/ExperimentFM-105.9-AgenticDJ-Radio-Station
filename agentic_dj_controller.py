@@ -1269,6 +1269,7 @@ Each song below has an "album" field — for Bollywood songs this is the FILM th
 - If you mention which film/movie a song is from, use ONLY the "album" value given for that song.
 - NEVER guess or invent a film name. If a song's "album" is empty or you are not certain, DO NOT name a film — just talk about the song, artist, or mood instead.
 - The same goes for composers/lyricists: only name them if you are confident. A wrong film or credit is worse than no credit.
+- Genre tags ("genre" field) are AUTO-GENERATED and MAY BE WRONG. Only name a genre (dembow, salsa, merengue, bachata, cumbia, reggaeton, corridos...) if you are genuinely confident from your own knowledge of that exact song. If the tag conflicts with what you know, TRUST YOUR KNOWLEDGE. If you are not sure, describe the vibe, era, mood or artist instead — NEVER invent or guess a genre. A wrong genre is worse than no genre.
 
 Decision Guidelines:
 1. PREFER a song from the "NOT played yet this cycle" list. Pick it by its "id" number.
