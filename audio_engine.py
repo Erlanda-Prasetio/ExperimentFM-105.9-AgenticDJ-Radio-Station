@@ -297,57 +297,93 @@ class RealtimeRadioMixer:
         # Write to output
         outdata[:] = mixed
     
-    def _resolve_output_device(self):
-        """Resolve output_device (a name substring) to a sounddevice index.
+    def _resolve_output_devices(self):
+        """Resolve output_device to an ORDERED list of sounddevice indices to try.
+
+        output_device may be a single name substring or a '|'-separated priority
+        chain, e.g. "Headphones (NeraBox|Headphones (Realtek". Each needle is
+        matched case-insensitively; the first chain entry that yields a working
+        device wins, later entries are fallbacks. A trailing None (Windows
+        default) is always appended as the last resort.
         Prefers A2DP (btha2dp) over HFP (Hands-Free) for Bluetooth devices."""
         if not self.output_device:
-            return None  # Windows default
+            return [None]  # Windows default
         try:
             devs = sd.query_devices()
         except Exception as e:
             print(f"[Mixer] Device query failed: {e} - using default")
-            return None
-        needle = self.output_device.lower()
-        matches = []
-        for i, d in enumerate(devs):
-            if d['max_output_channels'] > 0 and needle in d['name'].lower():
-                matches.append((i, d))
-        if not matches:
-            print(f"[Mixer] Output device '{self.output_device}' not found - using Windows default")
-            return None
-        # Prefer non-hands-free (A2DP/stereo), then most channels
+            return [None]
+
         def score(item):
             i, d = item
             n = d['name'].lower()
             hfp = ('hands-free' in n or 'headset' in n or 'hfp' in n) and 'btha2dp' not in n
             return (0 if not hfp else 1, -d['max_output_channels'])
-        matches.sort(key=score)
-        chosen_i, chosen = matches[0]
-        print(f"[Mixer] Output device -> [{chosen_i}] {chosen['name']} ({chosen['max_output_channels']}ch)")
-        return chosen_i
+
+        chain = [c.strip() for c in str(self.output_device).split('|') if c.strip()]
+        candidates = []
+        seen = set()
+        for needle in chain:
+            needle_l = needle.lower()
+            matches = [(i, d) for i, d in enumerate(devs)
+                       if d['max_output_channels'] > 0 and needle_l in d['name'].lower()]
+            if not matches:
+                print(f"[Mixer] Output device '{needle}' not found - skipping")
+                continue
+            matches.sort(key=score)
+            i, d = matches[0]
+            if i not in seen:
+                seen.add(i)
+                candidates.append(i)
+                print(f"[Mixer] Candidate -> [{i}] {d['name']} ({d['max_output_channels']}ch)")
+        # Always keep Windows default as the final safety net.
+        candidates.append(None)
+        return candidates
+
+    def _resolve_output_device(self):
+        """Back-compat: return the first (highest-priority) candidate index."""
+        return self._resolve_output_devices()[0]
 
     def start(self):
-        """Start the mixer stream"""
+        """Start the mixer stream.
+
+        Walks the resolved device priority chain and opens the FIRST device that
+        actually works. A device that enumerates but fails to open (e.g. a
+        Bluetooth headset that just disconnected) is skipped automatically, so a
+        dead NeraBox silently falls back to Realtek / Windows default without a
+        code change or a restart."""
         if self.running:
             print("[Mixer] Already running")
             return
-        
-        device = self._resolve_output_device()
-        
-        self.stream = sd.OutputStream(
-            samplerate=self.samplerate,
-            channels=self.channels,
-            blocksize=self.blocksize,
-            device=device,
-            callback=self._audio_callback,
-            dtype=np.float32,
-            latency='high'  # Higher latency = more stable, no underruns
-        )
-        
-        self.stream.start()
-        self.running = True
-        dev_name = "Windows default" if device is None else sd.query_devices(device)['name']
-        print(f"[Mixer] Stream started -> {dev_name}")
+
+        candidates = self._resolve_output_devices()
+        last_err = None
+        for device in candidates:
+            name = "Windows default" if device is None else sd.query_devices(device)['name']
+            try:
+                self.stream = sd.OutputStream(
+                    samplerate=self.samplerate,
+                    channels=self.channels,
+                    blocksize=self.blocksize,
+                    device=device,
+                    callback=self._audio_callback,
+                    dtype=np.float32,
+                    latency='high'  # Higher latency = more stable, no underruns
+                )
+                self.stream.start()
+                self.running = True
+                print(f"[Mixer] Stream started -> {name}")
+                return
+            except Exception as e:
+                last_err = e
+                print(f"[Mixer] Could not open '{name}': {e} - trying next")
+                try:
+                    if self.stream:
+                        self.stream.close()
+                except Exception:
+                    pass
+                self.stream = None
+        raise RuntimeError(f"[Mixer] No working output device (last error: {last_err})")
     
     def stop(self):
         """Stop the mixer stream"""
