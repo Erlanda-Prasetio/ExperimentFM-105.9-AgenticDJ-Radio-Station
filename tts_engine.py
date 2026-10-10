@@ -61,6 +61,7 @@ class TTSEngine:
         # Get appropriate voice (resolve BEFORE cache key so per-voice speed/cfg land in it)
         named = get_named_voice(voice_name) if voice_name else None
         eq_spec = None
+        de_ess_spec = None
         nfe_step = None
         sway_coef = None
         if named:
@@ -68,6 +69,7 @@ class TTSEngine:
             ref_voice = named['file']
             ref_text = named['transcript']
             eq_spec = named.get('eq')          # optional per-voice corrective EQ
+            de_ess_spec = named.get('de_ess')  # optional per-voice sibilance treatment
             nfe_step = named.get('nfe_step')   # optional per-voice diffusion steps
             sway_coef = named.get('sway')      # optional per-voice sway sampling coef
             # Per-voice cfg_strength (if not explicitly overridden)
@@ -77,11 +79,13 @@ class TTSEngine:
             # Use main DJ voice
             ref_voice = self.default_voice
             ref_text = self.default_text
+            de_ess_spec = getattr(self, 'default_de_ess', None)
         else:
             # Use language-specific voice
             voice = get_voice(language, gender)
             ref_voice = voice['file']
             ref_text = voice['transcript']
+            de_ess_spec = voice.get('de_ess')
 
         # Resolve speed: explicit arg > per-voice 'speed' > TTS_SPEED env > 1.0 default
         if speed is None:
@@ -114,13 +118,13 @@ class TTSEngine:
         print(f"[TTS] Generating: '{text[:50]}...' ({language}{', voice=' + voice_name if voice_name else ''})")
         
         if self.model == "F5-TTS":
-            self._generate_f5tts(text, output_path, ref_voice, ref_text, language, skip_processing, speed, cfg_strength, seed, eq_spec, nfe_step, sway_coef)
+            self._generate_f5tts(text, output_path, ref_voice, ref_text, language, skip_processing, speed, cfg_strength, seed, eq_spec, nfe_step, sway_coef, de_ess_spec)
         else:
             raise ValueError(f"Unknown TTS model: {self.model}")
         
         return output_path
     
-    def _generate_f5tts(self, text: str, output_path: str, ref_voice: str, ref_text: str, language: str = "english", skip_processing: bool = False, speed: float = 1.0, cfg_strength: float = None, seed: int = None, eq_spec: dict = None, nfe_step: int = 64, sway_coef: float = -1.0):
+    def _generate_f5tts(self, text: str, output_path: str, ref_voice: str, ref_text: str, language: str = "english", skip_processing: bool = False, speed: float = 1.0, cfg_strength: float = None, seed: int = None, eq_spec: dict = None, nfe_step: int = 64, sway_coef: float = -1.0, de_ess_spec: dict = None):
         """Generate using F5-TTS API"""
         import sys
         sys.path.insert(0, "C:/sourceCode/TTS/.venv/Lib/site-packages")
@@ -168,7 +172,7 @@ class TTSEngine:
             # Apply professional radio processing chain
             if not skip_processing:
                 print(f"[TTS] Applying radio processing...")
-                radio_processing(temp_output, output_path, sr=48000)
+                radio_processing(temp_output, output_path, sr=48000, de_ess_spec=de_ess_spec)
                 
                 # Clean up raw file
                 import os

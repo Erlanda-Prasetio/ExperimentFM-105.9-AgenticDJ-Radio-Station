@@ -20,6 +20,7 @@ __pycache__/
 # ============================================================
 tts_cache/
 radio_state_*.json
+qwen_radio_state_*.json
 session_history*.json
 decisions_log_*.jsonl
 
@@ -45,6 +46,13 @@ temp_*.wav
 voice_references/cand_*.wav
 voice_references/candidates/
 voice_references/candidates_new/
+
+# ============================================================
+#  Junk that lands in voice_references/ (installs, archives, tools)
+# ============================================================
+voice_references/*.exe
+voice_references/*.tar.gz
+voice_references/dxvk-*/
 
 # ============================================================
 #  OS / editor

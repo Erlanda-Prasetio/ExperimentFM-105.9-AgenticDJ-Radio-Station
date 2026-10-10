@@ -35,6 +35,7 @@ class QwenTTSEngine:
         main_voice = get_main_dj_voice(main_dj_gender)
         self.default_voice = main_voice['file']
         self.default_text = main_voice['transcript']
+        self.default_de_ess = main_voice.get('de_ess')   # may be None (clean voice)
         # Optional override: a named voice used when no voice_name is passed
         # (single-DJ mode). e.g. QWEN_DEFAULT_VOICE=naksh_thick
         _ov = os.getenv("QWEN_DEFAULT_VOICE")
@@ -43,6 +44,7 @@ class QwenTTSEngine:
             if _named:
                 self.default_voice = _named['file']
                 self.default_text = _named['transcript']
+                self.default_de_ess = _named.get('de_ess')
                 print(f"[QwenTTS] Default voice overridden -> {_ov} ({_named['name']})")
             else:
                 print(f"[QwenTTS] ⚠️ QWEN_DEFAULT_VOICE={_ov} not found - using default")
@@ -72,17 +74,21 @@ class QwenTTSEngine:
                  speed: float = None, cfg_strength: float = None, seed: int = None) -> str:
         named = get_named_voice(voice_name) if voice_name else None
         eq_spec = None
+        de_ess_spec = None
         if named:
             ref_voice = named['file']
             ref_text = named['transcript']
             eq_spec = named.get('eq')
+            de_ess_spec = named.get('de_ess')   # optional sibilance treatment
         elif language.lower() == "english" and gender is None:
             ref_voice = self.default_voice
             ref_text = self.default_text
+            de_ess_spec = self.default_de_ess
         else:
             v = get_voice(language, gender)
             ref_voice = v['file']
             ref_text = v['transcript']
+            de_ess_spec = v.get('de_ess')       # e.g. Cara via get_voice()
 
         # speed: explicit arg > per-voice 'speed' > TTS_SPEED env > 1.0
         if speed is None:
@@ -122,7 +128,7 @@ class QwenTTSEngine:
             os.replace(raw, output_path)
         else:
             from audio_processing import radio_processing, apply_voice_eq
-            radio_processing(raw, output_path, sr=48000)
+            radio_processing(raw, output_path, sr=48000, de_ess_spec=de_ess_spec)
             try:
                 os.remove(raw)
             except OSError:

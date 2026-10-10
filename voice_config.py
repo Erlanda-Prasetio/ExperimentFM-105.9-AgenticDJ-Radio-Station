@@ -8,6 +8,18 @@ import random
 # Base path
 VOICE_DIR = Path("voice_references")
 
+
+def _ref(*candidates):
+    """Return the first existing reference path; else the first candidate.
+
+    Lets a voice prefer a cleaned reference (e.g. de-essed) while still working
+    on a machine that only has the original clip.
+    """
+    for c in candidates:
+        if Path(c).exists():
+            return str(c)
+    return str(candidates[0])
+
 # Voice references with transcripts
 VOICES = {
     "english": {
@@ -16,8 +28,21 @@ VOICES = {
             "transcript": "Namaste and welcome to Experiment FM one-oh-five point nine. I'm your host for the evening. We've got an amazing collection of Bollywood hits lined up for you tonight, from the classics to the latest chartbusters. So sit back, relax, and let the music take over."
         },
         "female": {
-            "file": str(VOICE_DIR / "[DJ CARA (GTA V)] Hey.mp3"),
-            "transcript": "Hey, welcome to Experiment FM one-oh-five point nine. I'm your AI host for tonight. We've got an incredible mix of music from around the world, so sit back, relax, and let's get into it."
+            "file": _ref(VOICE_DIR / "cara_ref_deessed.wav",
+                         VOICE_DIR / "[DJ CARA (GTA V)] Hey.mp3"),
+            "transcript": "Hey, welcome to Experiment FM one-oh-five point nine. I'm your AI host for tonight. We've got an incredible mix of music from around the world, so sit back, relax, and let's get into it.",
+            "de_ess": {
+                "gain_stage": -6.0,
+                "de_ess": [
+                    [3000, 6000, -10.0, -5.0, 60.0],
+                    [6000, 10000, -10.0, -7.0, 60.0],
+                ],
+                "breaths": True,
+                "comp_attack_ms": 25.0,
+                "presence_db": 0.5,
+                "shelf_db": -2.0,
+                "shelf_hz": 9000,
+            },
         }
     },
     "indonesian": {
@@ -54,6 +79,18 @@ VOICES = {
 
 # Named DJ voices (for rotating DJ / handoff)
 # persona is OPTIONAL - leave empty string if you don't want a defined personality
+#
+# Optional per-voice keys:
+#   eq          : corrective EQ applied AFTER the broadcast chain (see apply_voice_eq)
+#   de_ess      : sibilance treatment applied BEFORE the broadcast chain. Shape:
+#                 {"gain_stage": -6.0,          # peak-normalize first (dB)
+#                  "de_ess": [[lo, hi, thr_below_p95, max_red, release_ms], ...],
+#                  "breaths": True,             # pull breath noise down
+#                  "comp_attack_ms": 25.0,      # slower attack (don't clamp pre-"s")
+#                  "presence_db": 0.5,          # gentler 3.5k presence
+#                  "shelf_db": -2.0, "shelf_hz": 9000}
+#               Voices with a sibilant reference (Cara) get one; clean voices
+#               (Jerry) omit it and keep the original chain untouched.
 NAMED_VOICES = {
     "naksh": {
         "name": "Naksh",
@@ -81,11 +118,30 @@ NAMED_VOICES = {
     },
     "ara": {
         "name": "Cara",
-        "file": str(VOICE_DIR / "[DJ CARA (GTA V)] Hey.mp3"),
+        # Reference clip is the DE-ESSED cut: the original "[DJ CARA (GTA V)] Hey"
+        # is sibilant (sh/body 0.069) and Qwen clones that harshness, so we clean
+        # the source first (deess_ref.py). Falls back to the raw mp3 if absent.
+        "file": _ref(VOICE_DIR / "cara_ref_deessed.wav",
+                     VOICE_DIR / "[DJ CARA (GTA V)] Hey.mp3"),
         "transcript": "Hey, welcome to Experiment FM one-oh-five point nine. I'm your AI host for tonight. We've got an incredible mix of music from around the world, so sit back, relax, and let's get into it.",
         "gender": "female",
         "persona": "",
-        "cfg": 2.2
+        "cfg": 2.2,
+        # Sibilance treatment (A/B winner: hybrid chain). Cara's "sss"/"sh"/"ch"
+        # sits at 3-6k ('sh/ch') and 6-10k ('s'); female voice => bands higher
+        # than a male voice.
+        "de_ess": {
+            "gain_stage": -6.0,
+            "de_ess": [
+                [3000, 6000, -10.0, -5.0, 60.0],    # 'sh' / 'ch'
+                [6000, 10000, -10.0, -7.0, 60.0],   # 's'
+            ],
+            "breaths": True,
+            "comp_attack_ms": 25.0,
+            "presence_db": 0.5,
+            "shelf_db": -2.0,
+            "shelf_hz": 9000,
+        },
     },
     "jr": {
         "name": "Junior",
