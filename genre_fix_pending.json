@@ -1,0 +1,31 @@
+{
+  "_note": "Genre corrections for ats_removed_non_english. spanish_meta.json is the source; run fill_spanish_id3.py --write to push to ID3 tags (what the radio actually reads).",
+  "_status": "DONE - both fixes applied to spanish_meta.json AND ID3 tags",
+  "_applied_to_meta": true,
+  "_applied_to_id3": true,
+  "fixes": [
+    {
+      "song": "Si, Es Así",
+      "artist": "El Alfa & Kim Loaiza",
+      "old_genre": "Reggaeton",
+      "new_genre": "Dembow",
+      "source": "user verdict"
+    },
+    {
+      "song": "El Cucu",
+      "artist": "La Sonora Dinamita",
+      "old_artist": "Wilfrido Vargas",
+      "old_genre": "Merengue",
+      "new_genre": "Cumbia",
+      "source": "user verdict (name collision: Sonora Dinamita cumbia vs Wilfrido Vargas merengue)"
+    }
+  ],
+  "verified_correct_no_change": [
+    {
+      "song": "NUEVAYoL",
+      "artist": "Bad Bunny",
+      "genre": "Reggaeton",
+      "source": "user verdict"
+    }
+  ]
+}
