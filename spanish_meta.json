@@ -125,11 +125,6 @@
     "genre": "Dembow",
     "year": "2020"
   },
-  "Montuno Encendido - La Sonora Estelar": {
-    "artist": "La Sonora Estelar",
-    "genre": "Salsa",
-    "year": "1990"
-  },
   "Mueve La Cadera": {
     "artist": "El Alfa feat. Kiko El Crazy",
     "genre": "Dembow",
@@ -294,5 +289,10 @@
     "artist": "大张伟",
     "genre": "Mandopop",
     "year": "2018"
+  },
+  "Montuno Encendido - La Sonora Estelar": {
+    "artist": "La Sonora Estelar",
+    "genre": "Salsa",
+    "year": "1990"
   }
 }

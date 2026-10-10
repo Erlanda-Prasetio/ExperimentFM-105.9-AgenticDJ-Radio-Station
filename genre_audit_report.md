@@ -26,12 +26,17 @@ Restart radio supaya tag baru kepakai (scan_library jalan sekali saat startup).
 Dembow: El Alfa (semua), Jey One, Don Miguelo, Dixson Waz, Yoan Retro (Bailalo Rocky 124bpm
 Dembow per DJpoolRecords), DJ Chulo NYC/PANTI Y COLALE (Diario Libre: dembow), Arlene MC
 MamaZota (Dembow), Leo RD/Dilon Baby Yo Soy Dominicano (dembow).
-Salsa: Marc Anthony (semua), El Gran Combo, Joe Arroyo, Grupo Niche, Guayacan (Oiga Mire Vea).
+Salsa: Marc Anthony (semua), El Gran Combo, Joe Arroyo, Grupo Niche, Guayacan (Oiga Mire Vea),
+**Montuno Encendido - La Sonora Estelar (user: "salsa kok")**.
 Bachata: Obsesion (Aventura).
 Mandopop: 阳光彩虹小白马.
 
-## UNRESOLVED — butuh dengar/verifikasi audio
+## TITLE CLEANUP
 
-- **Montuno Encendido (La Sonora Estelar)**: tag Salsa. Sumber web tipis (audio.com upload
-  Raul Pacheco). "Montuno" = bagian salsa, judul konsisten salsa. Kemungkinan BENAR, tapi
-  tidak ada sumber kuat. 103 BPM — konsisten salsa/cumbia. Perlu dengar.
+- **Montuno Encendido**: ID3 title was "Montuno Encendido - La Sonora Estelar" (artist name
+  duplicated into title → DJ would say "X by La Sonora Estelar by La Sonora Estelar").
+  Fixed: ID3 title -> "Montuno Encendido". Filename + meta key kept as-is (fill_spanish_id3
+  matches by filename stem, so the key must equal the file stem).
+
+## AUDIT COMPLETE — 59/59 files have metadata, 59/59 match meta keys.
+
